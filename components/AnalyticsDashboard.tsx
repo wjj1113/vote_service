@@ -1,8 +1,5 @@
 import React, { useEffect, useState } from 'react';
 import {
-  Bar,
-  Line,
-  Pie,
   Chart as ChartJS,
   CategoryScale,
   LinearScale,

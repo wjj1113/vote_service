@@ -4,6 +4,20 @@ import type { AppProps } from 'next/app'
 import Layout from '../components/Layout';
 import '../styles/globals.css'
 
+declare global {
+  interface Window {
+    gtag: (
+      command: string,
+      action: string,
+      params?: {
+        event_category?: string;
+        event_label?: string;
+        [key: string]: any;
+      }
+    ) => void;
+  }
+}
+
 export default function App({ Component, pageProps }: AppProps) {
   useEffect(() => {
     // GA4 이벤트 추적 함수
