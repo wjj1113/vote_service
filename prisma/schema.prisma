@@ -1,0 +1,128 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Party {
+  id         Int         @id @default(autoincrement())
+  name       String      @unique
+  policy     String
+  candidates Candidate[]
+}
+
+model Candidate {
+  id          Int          @id @default(autoincrement())
+  name        String
+  party       String
+  partyId     Int
+  partyRel    Party        @relation(fields: [partyId], references: [id])
+  policies    Policy[]
+  voteIntents VoteIntent[]
+}
+
+model Policy {
+  id             String    @id @default(uuid())
+  candidateId    Int
+  budget         String
+  categories     String[]
+  createdAt      DateTime  @default(now())
+  duration       String
+  goal           String
+  implementation String
+  order          Int
+  summary        String?
+  title          String
+  updatedAt      DateTime  @updatedAt
+  candidate      Candidate @relation(fields: [candidateId], references: [id])
+}
+
+model VoteIntent {
+  id          Int       @id @default(autoincrement())
+  candidateId Int
+  ageGroup    String
+  region      String
+  gender      String
+  createdAt   DateTime  @default(now())
+  candidate   Candidate @relation(fields: [candidateId], references: [id])
+}
+
+model Notification {
+  id     Int      @id @default(autoincrement())
+  userId String
+  pledge String
+  status String
+  sentAt DateTime @default(now())
+}
+
+model Subscription {
+  id           Int      @id @default(autoincrement())
+  type         String
+  email        String?
+  subscription Json?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+model MatchResponse {
+  id                   Int      @id @default(autoincrement())
+  recommendedCandidate String
+  recommendationReason String
+  keyPolicies          String[]
+  matched              Boolean
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+}
+
+model PoliticalOrientation {
+  id             Int             @id @default(autoincrement())
+  rawInput       String
+  tendency       String
+  valueBase      String
+  interests      String[]
+  voteBase       String
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+  recommendation Recommendation?
+}
+
+model Recommendation {
+  id            Int                  @id @default(autoincrement())
+  orientationId Int                  @unique
+  candidate     String
+  reason        String
+  policies      String[]
+  createdAt     DateTime             @default(now())
+  updatedAt     DateTime             @updatedAt
+  orientation   PoliticalOrientation @relation(fields: [orientationId], references: [id])
+}
+
+model SurveySubmission {
+  id        String   @id @default(cuid())
+  ipAddress String
+  formData  Json
+  createdAt DateTime @default(now())
+
+  @@index([ipAddress])
+}
+
+model UserActivity {
+  id          String   @id @default(cuid())
+  sessionId   String   // 사용자 세션 ID
+  page        String   // 방문한 페이지
+  action      String   // 수행한 액션 (view, click, submit 등)
+  elementId   String?  // 상호작용한 요소의 ID
+  elementType String?  // 상호작용한 요소의 타입 (button, link, form 등)
+  metadata    Json?    // 추가 메타데이터 (예: 폼 데이터, 클릭 위치 등)
+  userAgent   String?  // 브라우저 정보
+  referrer    String?  // 이전 페이지 URL
+  createdAt   DateTime @default(now())
+
+  @@index([sessionId])
+  @@index([page])
+  @@index([action])
+  @@index([createdAt])
+}

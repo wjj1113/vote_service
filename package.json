@@ -1,0 +1,50 @@
+{
+  "name": "vote_service",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint"
+  },
+  "dependencies": {
+    "@ant-design/icons": "^6.0.0",
+    "@prisma/client": "^4.0.0",
+    "@rc-component/util": "1.0.0",
+    "@types/nodemailer": "^6.4.17",
+    "@types/pdfjs-dist": "^2.10.377",
+    "@types/uuid": "^10.0.0",
+    "@types/web-push": "^3.6.4",
+    "@xmldom/xmldom": "^0.9.8",
+    "antd": "^5.25.1",
+    "autoprefixer": "^10.0.0",
+    "canvas": "^3.1.0",
+    "chart.js": "^4.4.0",
+    "lucide-react": "^0.511.0",
+    "next": "^14.0.0",
+    "nodemailer": "^7.0.3",
+    "openai": "^3.3.0",
+    "pdf-parse": "^1.1.1",
+    "pdfjs-dist": "^5.2.0",
+    "prisma": "^4.0.0",
+    "rc-picker": "3.7.0",
+    "rc-util": "5.27.0",
+    "react": "^18.2.0",
+    "react-chartjs-2": "^5.3.0",
+    "react-dom": "^18.2.0",
+    "recharts": "^2.15.3",
+    "tailwindcss": "^3.0.0",
+    "uuid": "^11.1.0",
+    "web-push": "^3.6.7"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "@types/react": "^18.2.0",
+    "@types/react-dom": "^18.2.0",
+    "typescript": "^5.0.0"
+  },
+  "prisma": {
+    "seed": "ts-node prisma/seed.ts"
+  }
+}
