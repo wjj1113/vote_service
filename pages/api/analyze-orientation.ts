@@ -1,3 +1,4 @@
+// Vercel redeploy: prisma client reuse fix
 // Vercel redeploy trigger: minor comment
 import { NextApiRequest, NextApiResponse } from 'next';
 import { Configuration, OpenAIApi } from 'openai';
