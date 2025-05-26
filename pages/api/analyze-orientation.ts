@@ -1,3 +1,4 @@
+// Vercel redeploy test: trivial comment for redeploy
 import { NextApiRequest, NextApiResponse } from 'next';
 import { Configuration, OpenAIApi } from 'openai';
 import { prisma } from '../../lib/prisma';
