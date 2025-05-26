@@ -1,13 +1,18 @@
-// Vercel redeploy: prisma client reuse fix
+// Vercel redeploy: supabase-js migration
 // Vercel redeploy trigger: minor comment
 import { NextApiRequest, NextApiResponse } from 'next';
 import { Configuration, OpenAIApi } from 'openai';
-import { prisma } from '../../lib/prisma';
+import { createClient } from '@supabase/supabase-js';
 
 const configuration = new Configuration({
   apiKey: process.env.OPENAI_API_KEY,
 });
 const openai = new OpenAIApi(configuration);
+
+const supabase = createClient(
+  process.env.SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!
+);
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== 'POST') {
@@ -80,18 +85,25 @@ ${chatHistory}`;
       투표기준: orientation.투표기준 || ''
     };
 
-    // 2. 데이터베이스에 저장
-    const savedOrientation = await prisma.politicalOrientation.create({
-      data: {
-        rawInput,
-        tendency: safeOrientation.성향,
-        valueBase: safeOrientation.가치기준,
-        interests: safeOrientation.관심정책,
-        voteBase: safeOrientation.투표기준,
-      },
-    });
+    // Supabase에 데이터 저장
+    const { data, error } = await supabase
+      .from('PoliticalOrientation')
+      .insert([
+        {
+          rawInput,
+          tendency: safeOrientation.성향,
+          valueBase: safeOrientation.가치기준,
+          interests: safeOrientation.관심정책,
+          voteBase: safeOrientation.투표기준,
+        },
+      ])
+      .select();
 
-    res.status(200).json(savedOrientation);
+    if (error) {
+      throw error;
+    }
+
+    res.status(200).json(data[0]);
   } catch (error) {
     console.error('Error analyzing orientation:', error);
     res.status(500).json({ error: 'Failed to analyze orientation' });
