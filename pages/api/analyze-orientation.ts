@@ -85,6 +85,7 @@ ${chatHistory}`;
       투표기준: orientation.투표기준 || ''
     };
 
+    const now = new Date().toISOString();
     // Supabase에 데이터 저장
     const { data, error } = await supabase
       .from('PoliticalOrientation')
@@ -95,6 +96,8 @@ ${chatHistory}`;
           valueBase: safeOrientation.가치기준,
           interests: safeOrientation.관심정책,
           voteBase: safeOrientation.투표기준,
+          createdAt: now,
+          updatedAt: now,
         },
       ])
       .select();
