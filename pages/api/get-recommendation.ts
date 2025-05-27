@@ -1,89 +1,85 @@
 import { NextApiRequest, NextApiResponse } from 'next';
-import { Configuration, OpenAIApi } from 'openai';
+import OpenAI from 'openai';
 import { prisma } from '../../lib/prisma';
 
-const configuration = new Configuration({
+const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
-const openai = new OpenAIApi(configuration);
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== 'POST') {
-    return res.status(405).json({ error: 'Method not allowed' });
+    return res.status(405).json({ 
+      success: false,
+      error: 'Method not allowed',
+      message: 'POST 메소드만 허용됩니다.'
+    });
   }
 
   try {
     const { orientationId } = req.body;
+    console.log('Received orientationId:', orientationId);
+
+    if (!orientationId) {
+      return res.status(400).json({ 
+        success: false,
+        error: 'Missing required parameter',
+        message: 'orientationId는 필수 파라미터입니다.'
+      });
+    }
 
     // 1. 정치 성향 데이터 조회
     const orientation = await prisma.politicalOrientation.findUnique({
-      where: { id: orientationId },
+      where: { id: Number(orientationId) }
     });
 
     if (!orientation) {
-      throw new Error('Political orientation not found');
+      return res.status(404).json({ 
+        success: false,
+        error: 'Orientation not found',
+        message: '해당 정치 성향 정보를 찾을 수 없습니다.'
+      });
     }
 
-    // 2. 후보자 데이터 조회
-    const candidates = await prisma.candidate.findMany({
-      include: {
-        policies: true,
-      },
-    });
+    // 2. DB에서 후보자 목록 가져오기 및 이름 리스트 추출
+    const candidates = await prisma.candidate.findMany({ select: { name: true } });
+    const candidateNames = candidates.map((c: { name: string }) => c.name);
 
-    const prompt = `당신은 대선 후보 분석 전문 정치봇입니다.
-
-사용자의 정치 성향과 관심사를 기반으로, 이번 대선에서 가장 잘 맞는 후보자를 추천해주세요.
-
-📌 사용자 정보:
-${JSON.stringify({
-  성향: orientation.tendency,
-  가치기준: orientation.valueBase,
-  관심정책: orientation.interests,
-  투표기준: orientation.voteBase,
-}, null, 2)}
-
-📌 후보자 정보:
-${JSON.stringify((candidates as any[]).map((c: any) => ({
-  이름: c.name,
-  정당: c.party,
-  공약: (c.policies as any[]).map((p: any) => p.title),
-})), null, 2)}
-
-✍️ 출력 형식:
-정보가 부족하거나 모르는 값이 있으면 null, 빈 문자열, 빈 배열로 채워주세요. 반드시 아래 JSON만 반환하세요:
-{
-  "공유형": {
-    "추천 후보자": "...",
-    "AI 반응": "...",
-    "이유 한 줄 요약": "...",
-    "찔린 포인트": "..."
-  },
-  "저장형": {
-    "추천 후보자": "...",
-    "추천 사유": "...",
-    "관련 공약": ["공약1", "공약2"]
-  }
-}`;
-
-    const completion = await openai.createChatCompletion({
-      model: "gpt-4",
-      messages: [
-        {
-          role: "system",
-          content: "당신은 후보자 추천 전문가입니다. 사용자의 성향과 관심사를 고려하여 가장 적합한 후보자를 추천해주세요."
-        },
-        {
-          role: "user",
-          content: prompt
+    // 3. 프롬프트 생성
+    const candidateRecommendationPrompt = {
+      role: "당신은 정치 성향 분석 및 후보자 추천 전문가입니다.",
+      task: `아래 정치 성향 분석 결과를 참고하여, 반드시 다음 후보자명 중에서 가장 적합한 후보자 한 명을 추천하세요.\n\n후보자명 리스트: ${candidateNames.map((n: string) => `"${n}"`).join(", ")}\n\n반드시 위 후보자명 중에서만 name 값을 선택하세요.\n\n아래 output 구조에 맞춰 모든 필드를 빠짐없이 채워서 반환하세요. 다른 설명이나 추가 JSON은 반환하지 마세요.`,
+      output: `{
+        "name": "후보자 이름",
+        "party": "정당",
+        "imageUrl": "이미지 URL (없으면 빈 문자열)",
+        "matchScore": 0-100,
+        "recommendation": "추천 이유",
+        "matchingPoints": ["정책1", "정책2"],
+        "differences": ["차이점1", "차이점2"],
+        "detailedAnalysis": {
+          "policyMatch": { "score": 0-100, "reason": "정책 일치도 분석" },
+          "valueMatch": { "score": 0-100, "reason": "가치관 일치도 분석" },
+          "demographicMatch": { "score": 0-100, "reason": "지역/계층 특성 분석" },
+          "leadershipMatch": { "score": 0-100, "reason": "리더십 스타일 분석" }
         }
+      }`
+    };
+
+    // 3. GPT로 추천 생성
+    const recommendCompletion = await openai.chat.completions.create({
+      model: "gpt-3.5-turbo",
+      messages: [
+        { role: "system", content: candidateRecommendationPrompt.role },
+        { role: "user", content: `${candidateRecommendationPrompt.task}\n\n정치 성향 분석 결과:\n${JSON.stringify(orientation, null, 2)}\n\n${candidateRecommendationPrompt.output}` }
       ],
       temperature: 0.7,
+      max_tokens: 1000,
+      response_format: { type: "json_object" }
     });
 
-    const result = completion.data.choices[0].message?.content;
+    const result = recommendCompletion.choices[0].message?.content;
     if (!result) {
-      throw new Error('No response from OpenAI');
+      throw new Error('OpenAI로부터 응답을 받지 못했습니다.');
     }
 
     // JSON 부분만 추출
@@ -91,21 +87,50 @@ ${JSON.stringify((candidates as any[]).map((c: any) => ({
     if (!jsonMatch) {
       throw new Error('OpenAI 응답에서 JSON을 찾을 수 없습니다.');
     }
-    const parsed = JSON.parse(jsonMatch[0]);
-    const shared = parsed.공유형 || {};
-    const saved = parsed.저장형 || {};
-    // 3. 추천 결과 저장 (저장형만 저장)
-    const savedRecommendation = await prisma.recommendation.create({
-      data: {
-        orientationId: orientation.id,
-        candidate: saved["추천 후보자"] || '',
-        reason: saved["추천 사유"] || '',
-        policies: saved["관련 공약"] || [],
-      },
+
+    let parsed;
+    try {
+      parsed = JSON.parse(jsonMatch[0]);
+    } catch (error) {
+      throw new Error('OpenAI 응답의 JSON 파싱에 실패했습니다.');
+    }
+
+    // 필수 필드 검증
+    if (!parsed.name) {
+      throw new Error('추천 후보자 정보가 누락되었습니다.');
+    }
+
+    // 4. 추천 결과 저장
+    try {
+      const savedRecommendation = await prisma.recommendation.create({
+        data: {
+          orientationId: Number(orientationId),
+          candidateId: parsed.name,
+          matchScore: parsed.matchScore,
+          matchingPoints: parsed.matchingPoints,
+          differences: parsed.differences,
+          recommendation: parsed.recommendation,
+          detailedAnalysis: parsed.detailedAnalysis
+        }
+      });
+      console.log('Saved recommendation:', savedRecommendation);
+    } catch (error) {
+      console.error('Error saving recommendation:', error);
+      // 추천 저장 실패는 전체 프로세스를 중단하지 않음
+    }
+
+    // 5. 응답 전송
+    return res.status(200).json({ 
+      success: true,
+      data: parsed
     });
-    res.status(200).json({ ...savedRecommendation, 공유형: shared, 저장형: saved });
   } catch (error) {
-    console.error('Error getting recommendation:', error);
-    res.status(500).json({ error: 'Failed to get recommendation' });
+    console.error('Error in get-recommendation:', error);
+    const errorMessage = error instanceof Error ? error.message : '후보자 추천에 실패했습니다.';
+    return res.status(500).json({ 
+      success: false,
+      error: 'Internal server error',
+      message: errorMessage
+    });
   }
 } 

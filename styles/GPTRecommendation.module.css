@@ -1,0 +1,12 @@
+.centerButton {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  width: 100%;
+  text-align: center;
+}
+
+.centerButton h5 {
+  margin: 0;
+  width: 100%;
+} 

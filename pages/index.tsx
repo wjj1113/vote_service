@@ -39,24 +39,26 @@ export default function Home() {
         {/* 상단 고정 PoliticalSurveyModal 버튼 */}
         <PoliticalSurveyModal />
         {/* 탭 메뉴 */}
-        <div className="flex space-x-4 mb-8">
+        <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-4 mb-8">
           <button
             onClick={() => { setActiveTab('service'); window.location.hash = '#service'; }}
             className={`px-6 py-3 rounded-lg font-medium transition-colors ${
               activeTab === 'service'
-                ? 'bg-blue-600 text-white'
+                ? 'bg-black text-white'
                 : 'bg-white text-gray-600 hover:bg-gray-100'
             }`}
+            data-tab="service"
           >
-            기존 서비스
+            후보자 비교
           </button>
           <button
             onClick={() => { setActiveTab('ai'); window.location.hash = '#ai'; }}
             className={`px-6 py-3 rounded-lg font-medium transition-colors ${
               activeTab === 'ai'
-                ? 'bg-blue-600 text-white'
+                ? 'bg-black text-white'
                 : 'bg-white text-gray-600 hover:bg-gray-100'
             }`}
+            data-tab="ai"
           >
             AI 추천
           </button>
@@ -64,23 +66,31 @@ export default function Home() {
             onClick={() => { setActiveTab('dashboard'); window.location.hash = '#dashboard'; }}
             className={`px-6 py-3 rounded-lg font-medium transition-colors ${
               activeTab === 'dashboard'
-                ? 'bg-blue-600 text-white'
+                ? 'bg-black text-white'
                 : 'bg-white text-gray-600 hover:bg-gray-100'
             }`}
+            data-tab="dashboard"
           >
             여론조사 대시보드
+          </button>
+          <button
+            onClick={() => { window.location.href = '/info'; }}
+            className={`px-6 py-3 rounded-lg font-medium transition-colors bg-gray-900 text-gray-100`}
+            data-tab="info"
+          >
+            서비스 소개
           </button>
         </div>
 
         {/* 탭 컨텐츠 */}
-        <div className="bg-white rounded-lg shadow-lg p-6">
-          {activeTab === 'service' ? (
-            <PolicyCompare />
-          ) : activeTab === 'ai' ? (
-            <GPTRecommendation chatHistory="" />
-          ) : (
-            <PoliticalSurveyDashboard />
-          )}
+        <div className={activeTab === 'service' ? 'block' : 'hidden'}>
+          <PolicyCompare />
+        </div>
+        <div className={activeTab === 'ai' ? 'block' : 'hidden'}>
+          <GPTRecommendation onRecommendationComplete={() => {}} />
+        </div>
+        <div className={activeTab === 'dashboard' ? 'block' : 'hidden'}>
+          <PoliticalSurveyDashboard />
         </div>
       </main>
     </div>

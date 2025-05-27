@@ -1,51 +1,71 @@
 import { NextApiRequest, NextApiResponse } from 'next';
-import { PrismaClient } from '@prisma/client';
-
-const prisma = new PrismaClient();
+import { prisma } from '../../lib/prisma';
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
-  try {
-    const submissions = await prisma.surveySubmission.findMany();
-    const totalResponses = submissions.length;
-    const lastUpdated = submissions.length > 0 ? submissions[submissions.length - 1].createdAt : null;
+  if (req.method !== 'GET') {
+    return res.status(405).json({ message: 'Method not allowed' });
+  }
 
-    // 집계 함수
-    const countBy = (key: string) => {
-      const counts: Record<string, number> = {};
-      submissions.forEach((s: any) => {
-        const value = s.formData && (s.formData as any)[key];
-        if (value) {
-          counts[value] = (counts[value] || 0) + 1;
-        }
+  try {
+    // 1. 기본 통계 데이터 조회
+    const stats = await prisma.surveyStats.findUnique({
+      where: { id: 1 }
+    });
+
+    if (!stats) {
+      return res.status(200).json({
+        totalResponses: 0,
+        lastUpdated: new Date(),
+        voteIntentCounts: {},
+        partySupportCounts: {},
+        keyIssuesCounts: {},
+        regionCounts: {},
+        ageGroupCounts: {},
+        genderCounts: {}
       });
-      return counts;
+    }
+
+    // 2. 상세 통계 데이터 조회 (최근 100개만)
+    const orientations = await prisma.politicalOrientation.findMany({
+      take: 100,
+      orderBy: {
+        createdAt: 'desc'
+      },
+      include: {
+        recommendation: true
+      }
+    });
+
+    // 3. 데이터 가공
+    const processedStats = {
+      ...stats,
+      voteIntentCounts: safeJsonParse(stats.voteIntentCounts),
+      partySupportCounts: safeJsonParse(stats.partySupportCounts),
+      keyIssuesCounts: safeJsonParse(stats.keyIssuesCounts),
+      regionCounts: safeJsonParse(stats.regionCounts),
+      ageGroupCounts: safeJsonParse(stats.ageGroupCounts),
+      genderCounts: safeJsonParse(stats.genderCounts)
     };
 
-    // 투표 의향
-    const voteIntentCounts = countBy('vote_intent');
-    // 지지 정당
-    const supportedPartyCounts = countBy('supported_party');
-    // 주요 이슈
-    const keyIssueCounts = countBy('key_issue');
-    // 지역
-    const regionCounts = countBy('region');
-    // 연령대
-    const ageCounts = countBy('age_group');
-    // 성별
-    const genderCounts = countBy('gender');
-
-    res.status(200).json({
-      totalResponses,
-      lastUpdated,
-      voteIntentCounts,
-      supportedPartyCounts,
-      keyIssueCounts,
-      regionCounts,
-      ageCounts,
-      genderCounts,
-    });
+    // 4. 응답
+    return res.status(200).json(processedStats);
   } catch (error) {
-    console.error('Error in survey-stats:', error);
-    res.status(500).json({ message: 'Internal server error' });
+    console.error('Error fetching survey stats:', error);
+    return res.status(500).json({ 
+      message: 'Internal server error',
+      error: error instanceof Error ? error.message : 'Unknown error'
+    });
+  }
+}
+
+// 안전한 JSON 파싱 헬퍼 함수
+function safeJsonParse(data: any): any {
+  if (!data) return {};
+  if (typeof data === 'object') return data;
+  try {
+    return JSON.parse(data);
+  } catch (e) {
+    console.error('JSON parse error:', e);
+    return {};
   }
 } 

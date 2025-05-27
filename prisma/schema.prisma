@@ -84,6 +84,9 @@ model PoliticalOrientation {
   valueBase      String
   interests      String[]
   voteBase       String
+  scores         Json?           @default("{}")  // 정치 성향 점수 저장
+  confidence     Float?          @default(0)     // 분석 신뢰도
+  reasoning      Json?           @default("{}")  // 각 차원별 점수 산정 이유
   createdAt      DateTime        @default(now())
   updatedAt      DateTime        @updatedAt
   recommendation Recommendation?
@@ -92,9 +95,12 @@ model PoliticalOrientation {
 model Recommendation {
   id            Int                  @id @default(autoincrement())
   orientationId Int                  @unique
-  candidate     String
-  reason        String
-  policies      String[]
+  candidateId   String?              @default("")
+  matchScore    Int?                 @default(0)  // 전체 매칭 점수
+  matchingPoints String[]           @default([])  // 매칭 포인트
+  differences   String[]            @default([])  // 차이점
+  recommendation String?            @default("")  // 추천 이유
+  detailedAnalysis Json?            @default("{}") // 상세 분석 결과
   createdAt     DateTime             @default(now())
   updatedAt     DateTime             @updatedAt
   orientation   PoliticalOrientation @relation(fields: [orientationId], references: [id])
@@ -125,4 +131,22 @@ model UserActivity {
   @@index([page])
   @@index([action])
   @@index([createdAt])
+}
+
+model SurveyStats {
+  id                Int      @id @default(1)
+  totalResponses    Int      @default(0)
+  lastUpdated       DateTime @default(now())
+  voteIntentCounts  Json     @default("{}")
+  partySupportCounts Json    @default("{}")
+  keyIssuesCounts   Json     @default("{}")
+  regionCounts      Json     @default("{}")
+  ageGroupCounts    Json     @default("{}")
+  genderCounts      Json     @default("{}")
+}
+
+model Feedback {
+  id        Int      @id @default(autoincrement())
+  content   String
+  createdAt DateTime @default(now())
 }

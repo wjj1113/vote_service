@@ -3,6 +3,8 @@ import Script from 'next/script';
 import type { AppProps } from 'next/app'
 import Layout from '../components/Layout';
 import '../styles/globals.css'
+import { useHashPageView } from '../lib/gtag';
+import 'bootstrap/dist/css/bootstrap.min.css';
 
 declare global {
   interface Window {
@@ -15,10 +17,12 @@ declare global {
         [key: string]: any;
       }
     ) => void;
+    Kakao: any;
   }
 }
 
 export default function App({ Component, pageProps }: AppProps) {
+  useHashPageView();
   useEffect(() => {
     // GA4 이벤트 추적 함수
     const trackEvent = (action: string, category?: string, label?: string) => {
@@ -32,6 +36,13 @@ export default function App({ Component, pageProps }: AppProps) {
 
     // 페이지뷰 추적
     trackEvent('page_view');
+
+    if (window.Kakao) {
+      const kakao = window.Kakao;
+      if (!kakao.isInitialized()) {
+        kakao.init(process.env.NEXT_PUBLIC_KAKAO_JS_KEY);
+      }
+    }
   }, []);
 
   return (
@@ -52,6 +63,10 @@ export default function App({ Component, pageProps }: AppProps) {
             gtag('config', '${process.env.NEXT_PUBLIC_GA_ID}');
           `,
         }}
+      />
+      <Script
+        src="https://developers.kakao.com/sdk/js/kakao.js"
+        strategy="afterInteractive"
       />
       <Component {...pageProps} />
     </Layout>

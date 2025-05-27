@@ -165,7 +165,7 @@ export default function DashboardChart() {
           onClick={() => setSelectedChart('age')}
           className={`px-4 py-2 rounded-lg ${
             selectedChart === 'age'
-              ? 'bg-blue-600 text-white'
+              ? 'bg-black text-white'
               : 'bg-gray-100 text-gray-700'
           }`}
         >
@@ -175,7 +175,7 @@ export default function DashboardChart() {
           onClick={() => setSelectedChart('region')}
           className={`px-4 py-2 rounded-lg ${
             selectedChart === 'region'
-              ? 'bg-blue-600 text-white'
+              ? 'bg-black text-white'
               : 'bg-gray-100 text-gray-700'
           }`}
         >
@@ -185,7 +185,7 @@ export default function DashboardChart() {
           onClick={() => setSelectedChart('gender')}
           className={`px-4 py-2 rounded-lg ${
             selectedChart === 'gender'
-              ? 'bg-blue-600 text-white'
+              ? 'bg-black text-white'
               : 'bg-gray-100 text-gray-700'
           }`}
         >
@@ -195,7 +195,7 @@ export default function DashboardChart() {
           onClick={() => setSelectedChart('trend')}
           className={`px-4 py-2 rounded-lg ${
             selectedChart === 'trend'
-              ? 'bg-blue-600 text-white'
+              ? 'bg-black text-white'
               : 'bg-gray-100 text-gray-700'
           }`}
         >

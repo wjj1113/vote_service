@@ -152,7 +152,7 @@ export default function NotificationBanner() {
 
             <button
               onClick={handleSubscribe}
-              className="w-full py-2 px-4 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+              className="w-full py-2 px-4 bg-black text-white rounded-lg hover:bg-gray-800"
             >
               알림 구독하기
             </button>
@@ -195,7 +195,7 @@ export default function NotificationBanner() {
 
         <button
           type="submit"
-          className="w-full py-2 px-4 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+          className="w-full py-2 px-4 bg-black text-white rounded-lg hover:bg-gray-800"
         >
           알림 전송
         </button>

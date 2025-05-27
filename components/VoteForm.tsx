@@ -234,7 +234,7 @@ export default function VoteForm() {
         <button
           type="submit"
           disabled={isLoading}
-          className="w-full py-2 px-4 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-400"
+          className="w-full py-2 px-4 bg-black text-white rounded-lg hover:bg-gray-800 disabled:bg-gray-400"
         >
           {isLoading ? '처리 중...' : '제출하기'}
         </button>

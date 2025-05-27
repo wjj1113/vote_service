@@ -130,7 +130,7 @@ const PoliticalSurveyModal = () => {
         onClick={openModal}
         className={`fixed bottom-8 left-1/2 transform -translate-x-1/2 z-50 px-8 py-4 text-xl font-bold rounded-full shadow-lg transition-colors ${
           canSubmit 
-            ? 'bg-blue-600 text-white hover:bg-blue-700' 
+            ? 'bg-black text-white hover:bg-gray-800' 
             : 'bg-gray-400 text-white cursor-not-allowed'
         }`}
         disabled={!canSubmit}
@@ -165,7 +165,7 @@ const PoliticalSurveyModal = () => {
               </div>
               <div className="w-full bg-gray-200 rounded-full h-2">
                 <div 
-                  className="bg-blue-600 h-2 rounded-full transition-all duration-300"
+                  className="bg-black h-2 rounded-full transition-all duration-300"
                   style={{ width: `${progress}%` }}
                 ></div>
               </div>
@@ -423,7 +423,7 @@ const PoliticalSurveyModal = () => {
                   <div className="flex flex-col space-y-3">
                     <button
                       onClick={goToCandidateRecommendation}
-                      className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                      className="px-4 py-2 bg-black text-white rounded-lg hover:bg-gray-800 transition-colors"
                     >
                       후보자 추천받기
                     </button>
@@ -472,8 +472,8 @@ const PoliticalSurveyModal = () => {
                     (step === 6 && !formData.gender) ||
                     loading ||
                     isSubmitting)
-                      ? 'bg-blue-300 text-white cursor-not-allowed' 
-                      : 'bg-blue-600 text-white hover:bg-blue-700'
+                      ? 'bg-black text-white cursor-not-allowed' 
+                      : 'bg-black text-white hover:bg-gray-800'
                   }`}
                 >
                   {loading ? (

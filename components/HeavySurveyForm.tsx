@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { CheckCircle2, Circle, AlertCircle, MessageSquare, User, Briefcase, Flag, Clock } from 'lucide-react';
+import { GA_EVENT_DETAILED } from '../lib/gtag';
 
 interface SurveyAnswers {
   lifestyle: string;
@@ -63,6 +64,7 @@ export default function HeavySurveyForm({
     
     setIsSubmitting(true);
     try {
+      GA_EVENT_DETAILED('click_heavy_survey_submit');
       await onSubmit(answers);
     } finally {
       setIsSubmitting(false);
@@ -79,6 +81,7 @@ export default function HeavySurveyForm({
     if (errors.policyPriority) {
       setErrors((prev: {[key: string]: string}) => ({ ...prev, policyPriority: '' }));
     }
+    GA_EVENT_DETAILED('click_heavy_survey_lifestyle_' + value);
   };
 
   return (

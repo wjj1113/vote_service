@@ -1,4 +1,6 @@
 import React, { useEffect, useState } from 'react';
+import { useRouter } from 'next/router';
+import { GA_EVENT_DETAILED } from '../lib/gtag';
 
 interface Policy {
   id: string;
@@ -78,8 +80,8 @@ function PolicyModal({ policy, candidate, isOpen, onClose }: PolicyModalProps) {
             <p className="text-gray-800">{policy.duration}</p>
           </div>
           <div>
-            <h3 className="font-semibold text-gray-700 mb-1">재원조달방안</h3>
-            <p className="text-gray-800 whitespace-pre-line">{policy.budget}</p>
+            <h3 className="font-semibold text-white mb-1">재원조달방안</h3>
+            <p className="text-white whitespace-pre-line">{policy.budget}</p>
           </div>
         </div>
       </div>
@@ -90,7 +92,7 @@ function PolicyModal({ policy, candidate, isOpen, onClose }: PolicyModalProps) {
 // 상단 바 컴포넌트
 function Header() {
   return (
-    <header className="w-full bg-blue-700 text-white py-4 shadow">
+    <header className="w-full bg-gray-900 text-white py-4 shadow">
       <div className="max-w-5xl mx-auto flex items-center px-4">
         <span className="text-2xl font-extrabold tracking-tight mr-3">🗳️</span>
         <span className="text-xl font-bold tracking-tight">2025 대선 정책 비교 서비스</span>
@@ -104,8 +106,17 @@ function Footer() {
   return (
     <footer className="w-full bg-gray-100 text-gray-500 py-4 mt-12 border-t">
       <div className="max-w-5xl mx-auto px-4 text-xs flex flex-col md:flex-row justify-between items-center gap-2">
-        <span>© 2025 대선 정책 비교 서비스</span>
-        <span>문의: info@votecompare.kr</span>
+        <div>
+          <h3 className="text-lg font-semibold mb-4">서비스</h3>
+          <ul className="space-y-2">
+            <li><button className="hover:text-blue-400 transition-colors text-left w-full">후보자 비교</button></li>
+            <li><button className="hover:text-blue-400 transition-colors text-left w-full">AI 추천</button></li>
+            <li><button className="hover:text-blue-400 transition-colors text-left w-full">여론조사 대시보드</button></li>
+            <li><a href="/info" className="hover:text-blue-400 transition-colors text-left w-full block">서비스 소개</a></li>
+          </ul>
+        </div>
+        <span>© 2025 정치 성향 분석 서비스. All rights reserved.</span>
+        <span>문의: aipoliticslab@gmail.com</span>
       </div>
     </footer>
   );
@@ -134,12 +145,86 @@ const candidateOrder = [
   '김문수',
   '이준석',
   '권영국',
-  '구주와',
   '황교안',
   '송진호',
 ];
 
+interface FeedbackModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  onSubmit: (feedback: string) => void;
+}
+
+function FeedbackModal({ isOpen, onClose, onSubmit }: FeedbackModalProps) {
+  const [feedback, setFeedback] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsSubmitting(true);
+    try {
+      await onSubmit(feedback);
+      setFeedback('');
+      onClose();
+    } catch (error) {
+      console.error('피드백 제출 중 오류 발생:', error);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+      <div className="bg-white rounded-lg p-6 max-w-lg w-full">
+        <div className="flex justify-between items-start mb-4">
+          <h3 className="text-xl font-bold text-gray-900">💬 소통과 피드백</h3>
+          <button
+            onClick={onClose}
+            className="text-gray-500 hover:text-gray-700"
+          >
+            ✕
+          </button>
+        </div>
+        <form onSubmit={handleSubmit}>
+          <div className="mb-4">
+            <label htmlFor="feedback" className="block text-sm font-medium text-gray-700 mb-2">
+              여러분의 소중한 의견을 들려주세요
+            </label>
+            <textarea
+              id="feedback"
+              value={feedback}
+              onChange={(e) => setFeedback(e.target.value)}
+              className="w-full h-32 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-transparent"
+              placeholder="서비스 개선사항이나 정확하지 않은 정보를 알려주시면 더 나은 서비스를 만드는데 큰 도움이 됩니다."
+              required
+            />
+          </div>
+          <div className="flex justify-end gap-3">
+            <button
+              type="button"
+              onClick={onClose}
+              className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+            >
+              취소
+            </button>
+            <button
+              type="submit"
+              disabled={isSubmitting || !feedback.trim()}
+              className="px-4 py-2 bg-gray-900 text-white rounded-lg hover:bg-gray-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {isSubmitting ? '제출 중...' : '피드백 보내기'}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
 export default function PolicyCompare() {
+  const router = useRouter();
   const [candidates, setCandidates] = useState<Candidate[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<string>('전체');
   const [searchQuery, setSearchQuery] = useState<string>('');
@@ -151,7 +236,17 @@ export default function PolicyCompare() {
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
   const [selectedCandidates, setSelectedCandidates] = useState<number[]>([]);
   const [viewMode, setViewMode] = useState<'table' | 'card'>('table');
-  const [showScores, setShowScores] = useState<boolean>(false);
+  const [isFeedbackModalOpen, setIsFeedbackModalOpen] = useState(false);
+  const [showToast, setShowToast] = useState(false);
+  const [toastMessage, setToastMessage] = useState('');
+  const [toastType, setToastType] = useState<'success' | 'error' | 'info'>('info');
+
+  const showNotification = (message: string, type: 'success' | 'error' | 'info' = 'info') => {
+    setToastMessage(message);
+    setToastType(type);
+    setShowToast(true);
+    setTimeout(() => setShowToast(false), 3000);
+  };
 
   useEffect(() => {
     fetch('/api/candidates')
@@ -168,13 +263,13 @@ export default function PolicyCompare() {
     '김문수': 'bg-red-600 text-white',
     '이준석': 'bg-orange-500 text-white',
     '권영국': 'bg-yellow-300 text-gray-900',
-    '구주와': 'bg-blue-200 text-gray-900',
     '황교안': 'bg-blue-800 text-white',
     '송진호': 'bg-purple-500 text-white',
   };
 
   // 후보 선택/해제
   const toggleCandidate = (candidateId: number) => {
+    GA_EVENT_DETAILED('button_click', { label: '후보자 선택', candidateId });
     if (selectedCandidates.includes(candidateId)) {
       if (selectedCandidates.length > 1) {
         setSelectedCandidates(selectedCandidates.filter((id) => id !== candidateId));
@@ -276,6 +371,30 @@ export default function PolicyCompare() {
   // 가장 많은 정책 개수
   const maxPolicies = Math.max(...policiesByCandidate.map(pc => pc.policies.length));
 
+  const handleFeedbackSubmit = async (feedback: string) => {
+    try {
+      const response = await fetch('/api/feedback', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ feedback }),
+      });
+
+      if (!response.ok) {
+        GA_EVENT_DETAILED('api_error', { endpoint: '/api/feedback', error: '피드백 제출 실패' });
+        throw new Error('피드백 제출에 실패했습니다.');
+      }
+
+      GA_EVENT_DETAILED('api_success', { endpoint: '/api/feedback' });
+      showNotification('소중한 피드백 감사합니다!', 'success');
+    } catch (error) {
+      GA_EVENT_DETAILED('api_error', { endpoint: '/api/feedback', error: String(error) });
+      showNotification('피드백 제출 중 오류가 발생했습니다.', 'error');
+      throw error;
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col">
       <Header />
@@ -313,10 +432,11 @@ export default function PolicyCompare() {
               key="전체"
               className={`px-4 py-2 font-medium whitespace-nowrap ${
                 selectedCategory === '전체'
-                  ? 'border-b-2 border-blue-500 text-blue-600'
+                  ? 'border-b-2 border-gray-900 text-gray-900'
                   : 'text-gray-600'
               }`}
               onClick={() => setSelectedCategory('전체')}
+              onClickCapture={() => GA_EVENT_DETAILED('button_click', { label: '카테고리_전체' })}
             >
               전체
             </button>
@@ -325,10 +445,11 @@ export default function PolicyCompare() {
                 key={category}
                 className={`px-4 py-2 font-medium whitespace-nowrap ${
                   selectedCategory === category
-                    ? 'border-b-2 border-blue-500 text-blue-600'
+                    ? 'border-b-2 border-gray-900 text-gray-900'
                     : 'text-gray-600'
                 }`}
                 onClick={() => setSelectedCategory(category)}
+                onClickCapture={() => GA_EVENT_DETAILED('button_click', { label: `카테고리_${category}` })}
               >
                 {category}
               </button>
@@ -340,28 +461,19 @@ export default function PolicyCompare() {
         <div className="mb-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
           <div className="flex items-center gap-2">
             <button
-              className={`px-3 py-1 rounded font-semibold ${viewMode === 'table' ? 'bg-blue-500 text-white' : 'bg-gray-200 text-gray-700'}`}
+              className={`px-3 py-1 rounded font-semibold ${viewMode === 'table' ? 'bg-gray-900 text-white' : 'bg-gray-200 text-gray-700'}`}
               onClick={() => setViewMode('table')}
+              onClickCapture={() => GA_EVENT_DETAILED('button_click', { label: '보기_표형식' })}
             >
               표 형식
             </button>
             <button
-              className={`px-3 py-1 rounded font-semibold ${viewMode === 'card' ? 'bg-blue-500 text-white' : 'bg-gray-200 text-gray-700'}`}
+              className={`px-3 py-1 rounded font-semibold ${viewMode === 'card' ? 'bg-gray-900 text-white' : 'bg-gray-200 text-gray-700'}`}
               onClick={() => setViewMode('card')}
+              onClickCapture={() => GA_EVENT_DETAILED('button_click', { label: '보기_카드형식' })}
             >
               카드 형식
             </button>
-          </div>
-          <div className="flex items-center">
-            <label className="flex items-center cursor-pointer">
-              <input
-                type="checkbox"
-                checked={showScores}
-                onChange={() => setShowScores(!showScores)}
-                className="mr-2 accent-blue-500"
-              />
-              <span>중요도(점수) 표시</span>
-            </label>
           </div>
         </div>
 
@@ -426,9 +538,22 @@ export default function PolicyCompare() {
             })}
           </div>
         )}
+
+        <div className="bg-gradient-to-br from-black via-gray-900 to-gray-800 rounded-2xl text-white text-center py-16 px-6 mt-20">
+          <h3 className="text-2xl font-bold mb-4">💬 소통과 피드백</h3>
+          <p className="text-lg opacity-90 mb-6 max-w-xl mx-auto">
+            더 나은 서비스를 위해 여러분의 의견을 기다립니다. 정확하지 않은 정보나 개선사항이 있다면 언제든 알려주세요.
+          </p>
+          <button
+            onClick={() => setIsFeedbackModalOpen(true)}
+            onClickCapture={() => GA_EVENT_DETAILED('button_click', { label: '피드백_모달열기' })}
+            className="inline-block bg-white text-black px-8 py-3 rounded-full font-semibold shadow hover:scale-105 transition-transform"
+          >
+            피드백 보내기
+          </button>
+        </div>
       </main>
       <Footer />
-      {/* 정책 상세 모달 */}
       {selectedPolicy && (
         <PolicyModal
           policy={selectedPolicy.policy}
@@ -436,6 +561,20 @@ export default function PolicyCompare() {
           isOpen={true}
           onClose={() => setSelectedPolicy(null)}
         />
+      )}
+      <FeedbackModal
+        isOpen={isFeedbackModalOpen}
+        onClose={() => setIsFeedbackModalOpen(false)}
+        onSubmit={handleFeedbackSubmit}
+      />
+      {showToast && (
+        <div className={`fixed top-4 right-4 p-4 rounded-lg shadow-lg ${
+          toastType === 'success' ? 'bg-green-500' : 
+          toastType === 'error' ? 'bg-red-500' : 
+          'bg-gray-900'
+        } text-white`}>
+          {toastMessage}
+        </div>
       )}
     </div>
   );

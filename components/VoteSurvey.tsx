@@ -104,7 +104,7 @@ export default function VoteSurvey({ onSubmit }: { onSubmit: (answers: typeof in
           </label>
         ))}
       </div>
-      <button type="submit" className="w-full py-2 bg-blue-600 text-white rounded">제출하기</button>
+      <button type="submit" className="w-full py-2 bg-black text-white rounded">제출하기</button>
     </form>
   );
 } 

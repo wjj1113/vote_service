@@ -56,7 +56,11 @@ const PoliticalSurveyDashboard = () => {
   const dummyData = {
     totalResponses: 2847,
     responseRate: 94.2,
-    lastUpdated: "2025년 5월 20일",
+    lastUpdated: new Date().toLocaleDateString('ko-KR', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric'
+    }),
     voteIntent: [
       { label: '반드시 투표할 것이다', value: 'definitely_vote', count: 1598, percentage: 56.1 },
       { label: '가능하면 투표할 것이다', value: 'likely_vote', count: 823, percentage: 28.9 },
@@ -114,67 +118,59 @@ const PoliticalSurveyDashboard = () => {
         const res = await fetch('/api/survey-stats');
         if (!res.ok) throw new Error('통계 데이터를 불러오지 못했습니다.');
         const data = await res.json();
-        // API 응답을 차트용 데이터로 변환
-        setSurveyData({
-          totalResponses: data.totalResponses,
-          lastUpdated: data.lastUpdated,
-          voteIntent: [
-            { label: '반드시 투표할 것이다', value: 'definitely_vote', count: data.voteIntentCounts['definitely_vote'] || 0 },
-            { label: '가능하면 투표할 것이다', value: 'likely_vote', count: data.voteIntentCounts['likely_vote'] || 0 },
-            { label: '아마 투표하지 않을 것이다', value: 'unlikely_vote', count: data.voteIntentCounts['unlikely_vote'] || 0 },
-            { label: '투표하지 않을 것이다', value: 'definitely_not_vote', count: data.voteIntentCounts['definitely_not_vote'] || 0 },
-          ],
-          supportedParty: [
-            { label: '더불어민주당 (이재명)', value: 'democratic_party', count: data.supportedPartyCounts['democratic_party'] || 0, color: '#0066CC' },
-            { label: '국민의힘 (김문수)', value: 'peoples_power', count: data.supportedPartyCounts['peoples_power'] || 0, color: '#E61E2B' },
-            { label: '개혁신당 (이준석)', value: 'reform_party', count: data.supportedPartyCounts['reform_party'] || 0, color: '#F39C12' },
-            { label: '민주노동당 (권영국)', value: 'labor_party', count: data.supportedPartyCounts['labor_party'] || 0, color: '#E74C3C' },
-            { label: '무소속 (황교안)', value: 'independent_hwang', count: data.supportedPartyCounts['independent_hwang'] || 0, color: '#95A5A6' },
-            { label: '무소속 (송진호)', value: 'independent_song', count: data.supportedPartyCounts['independent_song'] || 0, color: '#BDC3C7' },
-            { label: '지지하는 후보는 있지만 정당은 없음', value: 'candidate_only', count: data.supportedPartyCounts['candidate_only'] || 0, color: '#9B59B6' },
-            { label: '지지 정당 없음 / 모르겠음', value: 'no_party', count: data.supportedPartyCounts['no_party'] || 0, color: '#34495E' },
-          ],
-          keyIssues: [
-            { label: '경제', value: 'economy', count: data.keyIssueCounts['economy'] || 0 },
-            { label: '복지', value: 'welfare', count: data.keyIssueCounts['welfare'] || 0 },
-            { label: '공정', value: 'fairness', count: data.keyIssueCounts['fairness'] || 0 },
-            { label: '안보', value: 'security', count: data.keyIssueCounts['security'] || 0 },
-            { label: '청년정책', value: 'youth_policy', count: data.keyIssueCounts['youth_policy'] || 0 },
-            { label: '정치개혁', value: 'political_reform', count: data.keyIssueCounts['political_reform'] || 0 },
-            { label: '기후위기', value: 'climate', count: data.keyIssueCounts['climate'] || 0 },
-            { label: '기타 / 잘 모르겠다', value: 'other', count: data.keyIssueCounts['other'] || 0 },
-          ],
-          regionDistribution: [
-            { label: '서울', value: 'seoul', count: data.regionCounts['seoul'] || 0 },
-            { label: '경기 / 인천', value: 'gyeonggi', count: data.regionCounts['gyeonggi'] || 0 },
-            { label: '경상', value: 'gyeongsang', count: data.regionCounts['gyeongsang'] || 0 },
-            { label: '충청', value: 'chungcheong', count: data.regionCounts['chungcheong'] || 0 },
-            { label: '전라', value: 'jeolla', count: data.regionCounts['jeolla'] || 0 },
-            { label: '강원', value: 'gangwon', count: data.regionCounts['gangwon'] || 0 },
-            { label: '제주', value: 'jeju', count: data.regionCounts['jeju'] || 0 },
-            { label: '해외', value: 'overseas', count: data.regionCounts['overseas'] || 0 },
-          ],
-          ageDistribution: [
-            { label: '18–29세', value: '18-29', count: data.ageCounts['18-29'] || 0 },
-            { label: '30대', value: '30s', count: data.ageCounts['30s'] || 0 },
-            { label: '40대', value: '40s', count: data.ageCounts['40s'] || 0 },
-            { label: '50대', value: '50s', count: data.ageCounts['50s'] || 0 },
-            { label: '60세 이상', value: '60+', count: data.ageCounts['60+'] || 0 },
-          ],
-          genderDistribution: [
-            { label: '남성', value: 'male', count: data.genderCounts['male'] || 0 },
-            { label: '여성', value: 'female', count: data.genderCounts['female'] || 0 },
-            { label: '선택하지 않음', value: 'prefer_not_to_say', count: data.genderCounts['prefer_not_to_say'] || 0 },
-          ],
-        });
-      } catch (e) {
-        setSurveyData(null);
+        setSurveyData(data);
+      } catch (error) {
+        console.error('통계 데이터 로딩 중 오류:', error);
+        setSurveyData(dummyData);
       } finally {
         setLoading(false);
       }
     };
+
+    // 초기 데이터 로드
     fetchStats();
+
+    // 실시간 업데이트를 위한 WebSocket 연결
+    const ws = new WebSocket(process.env.NEXT_PUBLIC_WS_URL || 'ws://localhost:3001');
+
+    ws.onmessage = (event) => {
+      const update = JSON.parse(event.data);
+      if (update.type === 'stats_update') {
+        setSurveyData(prevData => ({
+          ...prevData,
+          ...update.data,
+          lastUpdated: new Date().toLocaleString()
+        }));
+      }
+    };
+
+    ws.onerror = (error) => {
+      console.error('WebSocket 연결 오류:', error);
+    };
+
+    // 컴포넌트 언마운트 시 WebSocket 연결 종료
+    return () => {
+      ws.close();
+    };
   }, []);
+
+  // 실시간 업데이트 표시
+  const [lastUpdate, setLastUpdate] = useState<string>('');
+  useEffect(() => {
+    if (surveyData?.lastUpdated) {
+      const updateTime = new Date(surveyData.lastUpdated);
+      const now = new Date();
+      const diff = now.getTime() - updateTime.getTime();
+      
+      if (diff < 60000) { // 1분 이내
+        setLastUpdate('방금 전');
+      } else if (diff < 3600000) { // 1시간 이내
+        setLastUpdate(`${Math.floor(diff / 60000)}분 전`);
+      } else {
+        setLastUpdate(updateTime.toLocaleString());
+      }
+    }
+  }, [surveyData?.lastUpdated]);
 
   const data = surveyData || dummyData;
 
@@ -226,7 +222,7 @@ const PoliticalSurveyDashboard = () => {
             <ResponsiveContainer width="100%" height={300}>
               <PieChart>
                 <Pie
-                  data={data.voteIntent}
+                  data={data.voteIntent ?? []}
                   cx="50%"
                   cy="50%"
                   labelLine={false}
@@ -236,7 +232,7 @@ const PoliticalSurveyDashboard = () => {
                   dataKey="count"
                   nameKey="label"
                 >
-                  {data.voteIntent.map((entry: any, index: number) => (
+                  {(data.voteIntent ?? []).map((entry: any, index: number) => (
                     <Cell key={`cell-${index}`} fill={COLORS[index]} />
                   ))}
                 </Pie>
@@ -250,7 +246,7 @@ const PoliticalSurveyDashboard = () => {
           <div className="bg-white rounded-lg shadow-md p-6">
             <h3 className="text-lg font-semibold text-gray-900 mb-4">정당별 지지도</h3>
             <ResponsiveContainer width="100%" height={300}>
-              <BarChart data={data.supportedParty}>
+              <BarChart data={data.supportedParty ?? []}>
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis 
                   dataKey="label" 
@@ -262,7 +258,7 @@ const PoliticalSurveyDashboard = () => {
                 <YAxis />
                 <Tooltip content={<CustomTooltip />} />
                 <Bar dataKey="count" fill="#3B82F6">
-                  {data.supportedParty.map((entry: any, index: number) => (
+                  {(data.supportedParty ?? []).map((entry: any, index: number) => (
                     <Cell key={`cell-${index}`} fill={entry.color} />
                   ))}
                 </Bar>
@@ -274,7 +270,7 @@ const PoliticalSurveyDashboard = () => {
           <div className="bg-white rounded-lg shadow-md p-6">
             <h3 className="text-lg font-semibold text-gray-900 mb-4">주요 관심 이슈</h3>
             <ResponsiveContainer width="100%" height={300}>
-              <BarChart data={data.keyIssues} layout="horizontal">
+              <BarChart data={data.keyIssues ?? []} layout="horizontal">
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis type="number" />
                 <YAxis dataKey="label" type="category" width={80} fontSize={12} />
@@ -288,7 +284,7 @@ const PoliticalSurveyDashboard = () => {
           <div className="bg-white rounded-lg shadow-md p-6">
             <h3 className="text-lg font-semibold text-gray-900 mb-4">지역별 응답 분포</h3>
             <ResponsiveContainer width="100%" height={300}>
-              <BarChart data={data.regionDistribution}>
+              <BarChart data={data.regionDistribution ?? []}>
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis dataKey="label" fontSize={12} />
                 <YAxis />
@@ -305,7 +301,7 @@ const PoliticalSurveyDashboard = () => {
           <div className="bg-white rounded-lg shadow-md p-6">
             <h3 className="text-lg font-semibold text-gray-900 mb-4">연령대별 분포</h3>
             <div className="space-y-3">
-              {data.ageDistribution.map((age: any, index: number) => (
+              {((data.ageDistribution ?? [])).map((age: any, index: number) => (
                 <div key={age.value} className="flex items-center justify-between">
                   <div className="flex items-center">
                     <div className="w-4 h-4 rounded mr-3" style={{ backgroundColor: COLORS[index] }}></div>
@@ -326,7 +322,7 @@ const PoliticalSurveyDashboard = () => {
             <ResponsiveContainer width="100%" height={200}>
               <PieChart>
                 <Pie
-                  data={data.genderDistribution}
+                  data={data.genderDistribution ?? []}
                   cx="50%"
                   cy="50%"
                   innerRadius={40}
@@ -335,7 +331,7 @@ const PoliticalSurveyDashboard = () => {
                   dataKey="count"
                   label={({ percentage }) => `${percentage}%`}
                 >
-                  {data.genderDistribution.map((entry: any, index: number) => (
+                  {((data.genderDistribution ?? [])).map((entry: any, index: number) => (
                     <Cell key={`cell-${index}`} fill={COLORS[index]} />
                   ))}
                 </Pie>
@@ -382,7 +378,7 @@ const PoliticalSurveyDashboard = () => {
                 </tr>
               </thead>
               <tbody>
-                {data.supportedParty
+                {((data.supportedParty ?? [])
                   .sort((a: any, b: any) => b.count - a.count)
                   .map((party: any, index: number) => (
                     <tr key={party.value} className="border-b hover:bg-gray-50">
@@ -408,7 +404,7 @@ const PoliticalSurveyDashboard = () => {
                         </span>
                       </td>
                     </tr>
-                  ))}
+                  )))}
               </tbody>
             </table>
           </div>
@@ -418,6 +414,43 @@ const PoliticalSurveyDashboard = () => {
         <div className="text-center text-gray-500 text-sm">
           <p>본 조사는 익명으로 진행되었으며, 통계적 목적으로만 사용됩니다.</p>
           <p className="mt-1">데이터 수집 기간: 2025년 5월 1일 ~ 5월 20일</p>
+          
+          {/* 내부 링크 */}
+          <div className="mt-4 flex justify-center space-x-4">
+            <a 
+              href="/#service" 
+              className="text-gray-600 hover:text-gray-900 transition-colors"
+            >
+              <span className="flex items-center">
+                <svg className="w-5 h-5 mr-1" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm-1-13h2v6h-2zm0 8h2v2h-2z"/>
+                </svg>
+                후보자 비교
+              </span>
+            </a>
+            <a 
+              href="/#ai" 
+              className="text-gray-600 hover:text-gray-900 transition-colors"
+            >
+              <span className="flex items-center">
+                <svg className="w-5 h-5 mr-1" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/>
+                </svg>
+                AI 추천
+              </span>
+            </a>
+            <a 
+              href="/#dashboard" 
+              className="text-gray-600 hover:text-gray-900 transition-colors"
+            >
+              <span className="flex items-center">
+                <svg className="w-5 h-5 mr-1" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M3 13h8V3H3v10zm0 8h8v-6H3v6zm10 0h8V11h-8v10zm0-18v6h8V3h-8z"/>
+                </svg>
+                여론조사 대시보드
+              </span>
+            </a>
+          </div>
         </div>
       </div>
     </div>
