@@ -80,7 +80,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         return {
           name: candidateInfo?.name || '',
           party: candidateInfo?.party || '',
-          imageUrl: candidateInfo?.imageUrl || candidateImageUrls[candidateInfo?.name?.replace(/\s+/g, '')] || '/images/default-candidate.png',
+          imageUrl: candidateInfo?.imageUrl || (candidateInfo?.name ? candidateImageUrls[candidateInfo.name.replace(/\s+/g, '')] : null) || '/images/default-candidate.png',
           matchScore: rec.matchScore || 0,
           matchingPoints: rec.matchingPoints || [],
           differences: rec.differences || [],

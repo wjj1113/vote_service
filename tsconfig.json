@@ -23,7 +23,8 @@
       "@/*": ["./*"]
     },
     "allowSyntheticDefaultImports": true,
-    "moduleDetection": "force"
+    "moduleDetection": "force",
+    "downlevelIteration": true
   },
   "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts", "@types/**/*.d.ts", "types/**/*.d.ts"],
   "exclude": ["node_modules"]

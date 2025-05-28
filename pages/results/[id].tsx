@@ -6,6 +6,7 @@ import { SiThreads } from 'react-icons/si';
 import { RiKakaoTalkFill } from 'react-icons/ri';
 import Script from 'next/script';
 import Popup from '../../components/Popup';
+import Head from 'next/head';
 
 interface AnalysisResult {
   politicalOrientation: {
@@ -513,7 +514,20 @@ export default function ResultsPage() {
   };
 
   return (
-    <div>
+    <>
+      <Head>
+        <title>{result?.recommendations?.[0]?.name ? `${result.recommendations[0].name} 후보 추천 결과 - 2025 대선 정책 비교` : '2025 대선 정책 비교, AI 후보 추천'}</title>
+        <meta name="description" content={result?.recommendations?.[0]?.recommendation || 'AI가 분석한 정치 성향, 후보별 정책 비교, 공약 이행까지 한눈에! 2025 대선 정책 서비스'} />
+        <meta property="og:title" content={result?.recommendations?.[0]?.name ? `${result.recommendations[0].name} 후보 추천 결과 - 2025 대선 정책 비교` : '2025 대선 정책 비교, AI 후보 추천'} />
+        <meta property="og:description" content={result?.recommendations?.[0]?.recommendation || 'AI가 분석한 정치 성향, 후보별 정책 비교, 공약 이행까지 한눈에! 2025 대선 정책 서비스'} />
+        <meta property="og:image" content={result?.recommendations?.[0]?.imageUrl || '/og-main.png'} />
+        <meta property="og:type" content="article" />
+        <meta name="twitter:card" content="summary_large_image" />
+        <meta name="twitter:title" content={result?.recommendations?.[0]?.name ? `${result.recommendations[0].name} 후보 추천 결과 - 2025 대선 정책 비교` : '2025 대선 정책 비교, AI 후보 추천'} />
+        <meta name="twitter:description" content={result?.recommendations?.[0]?.recommendation || 'AI가 분석한 정치 성향, 후보별 정책 비교, 공약 이행까지 한눈에! 2025 대선 정책 서비스'} />
+        <meta name="twitter:image" content={result?.recommendations?.[0]?.imageUrl || '/og-main.png'} />
+        <link rel="icon" href="/favicon.ico" />
+      </Head>
       <Popup forceOpen={true} />
       <Script
         src="https://developers.kakao.com/sdk/js/kakao.js"
@@ -545,6 +559,6 @@ export default function ResultsPage() {
           <CandidateResult resultData={resultData} />
         </div>
       </div>
-    </div>
+    </>
   );
 } 

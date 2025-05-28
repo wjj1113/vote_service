@@ -31,8 +31,16 @@ export default function Home() {
   return (
     <div className="min-h-screen bg-gray-50">
       <Head>
-        <title>투표 서비스</title>
-        <meta name="description" content="투표 서비스" />
+        <title>2025 대선 정책 비교, AI 후보 추천, 공약 이행 모니터링</title>
+        <meta name="description" content="AI가 분석한 정치 성향, 후보별 정책 비교, 공약 이행까지 한눈에! 2025 대선 정책 서비스" />
+        <meta property="og:title" content="2025 대선 정책 비교, AI 후보 추천, 공약 이행 모니터링" />
+        <meta property="og:description" content="AI가 분석한 정치 성향, 후보별 정책 비교, 공약 이행까지 한눈에! 2025 대선 정책 서비스" />
+        <meta property="og:image" content="/og-main.png" />
+        <meta property="og:type" content="website" />
+        <meta name="twitter:card" content="summary_large_image" />
+        <meta name="twitter:title" content="2025 대선 정책 비교, AI 후보 추천, 공약 이행 모니터링" />
+        <meta name="twitter:description" content="AI가 분석한 정치 성향, 후보별 정책 비교, 공약 이행까지 한눈에! 2025 대선 정책 서비스" />
+        <meta name="twitter:image" content="/og-main.png" />
         <link rel="icon" href="/favicon.ico" />
       </Head>
 
