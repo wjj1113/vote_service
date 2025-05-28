@@ -8,6 +8,10 @@ const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
 
+
+// 후보자 목록
+const candidateNames = ["이재명", "김문수", "이준석", "권영국", "황교안", "송진호"];
+
 // 정치 성향 분석을 위한 프롬프트
 const analysisPrompt = `당신은 정치 성향 분석 전문가입니다. 주어진 텍스트를 분석하여 다음 5가지 차원에서 점수를 매겨주세요:
 
@@ -154,29 +158,21 @@ const detailedAnalysisPrompt = {
 
 // 개인 분석 프롬프트
 const personalAnalysisPrompt = {
-  role: "당신은 개인화된 정치 성향 분석 전문가입니다.",
-  task: `사용자의 대화 내용을 분석하여 정치 성향을 파악하고, 다음 정보를 추출해주세요:\n1. 정치 성향 (진보/중도/보수)\n2. 주요 가치관\n3. 관심 정책 분야\n4. 투표 기준`,
+  role: "당신은 정치 성향 분석 및 후보자 추천 전문가입니다.",
+  task: `아래 정치 성향 분석 결과를 참고하여, 반드시 다음 후보자명 중에서 가장 적합한 후보자 한 명을 추천하세요.\n\n후보자명 리스트: ${candidateNames.map((n: string) => `"${n}"`).join(", ")}\n\n반드시 위 후보자명 중에서만 name 값을 선택하세요.\n\n아래 output 구조에 맞춰 모든 필드를 빠짐없이 채워서 반환하세요. 다른 설명이나 추가 JSON은 반환하지 마세요.`,
   output: `{
-    "politicalOrientation": {
-      "tendency": "진보/중도/보수",
-      "valueBase": "주요 가치관",
-      "interests": ["관심 분야1", "관심 분야2"],
-      "voteBase": "투표 기준"
-    },
-    "scores": {
-      "progressiveConservative": 1-10,
-      "economicFreedomControl": 1-10,
-      "socialFreedomControl": 1-10,
-      "environmentIndustry": 1-10,
-      "welfareEfficiency": 1-10
-    },
-    "confidence": 0.0-1.0,
-    "reasoning": {
-      "progressiveConservative": "점수 부여 이유",
-      "economicFreedomControl": "점수 부여 이유",
-      "socialFreedomControl": "점수 부여 이유",
-      "environmentIndustry": "점수 부여 이유",
-      "welfareEfficiency": "점수 부여 이유"
+    "name": "후보자 이름",
+    "party": "정당",
+    "imageUrl": "이미지 URL (없으면 빈 문자열)",
+    "matchScore": 0-100,
+    "recommendation": "추천 이유",
+    "matchingPoints": ["정책1", "정책2"],
+    "differences": ["차이점1", "차이점2"],
+    "detailedAnalysis": {
+      "policyMatch": { "score": 0-100, "reason": "정책 일치도 분석" },
+      "valueMatch": { "score": 0-100, "reason": "가치관 일치도 분석" },
+      "demographicMatch": { "score": 0-100, "reason": "지역/계층 특성 분석" },
+      "leadershipMatch": { "score": 0-100, "reason": "리더십 스타일 분석" }
     }
   }`
 };
@@ -237,13 +233,21 @@ const dataProcessingPrompt = {
   }`
 };
 
-// 후보자 목록
-const candidateNames = ["이재명", "김문수", "이준석", "권영국", "황교안", "송진호"];
 
 // 후보자 추천 프롬프트
 const candidateRecommendationPrompt = {
   role: "당신은 정치 성향 분석 및 후보자 추천 전문가입니다.",
-  task: `아래 정치 성향 분석 결과를 참고하여, 반드시 다음 후보자명 중에서 가장 적합한 후보자 한 명을 추천하세요.\n\n후보자명 리스트: ${candidateNames.map((n: string) => `"${n}"`).join(", ")}\n\n반드시 위 후보자명 중에서만 name 값을 선택하세요.\n\n아래 output 구조에 맞춰 모든 필드를 빠짐없이 채워서 반환하세요. 다른 설명이나 추가 JSON은 반환하지 마세요.`,
+  task: `아래 정치 성향 분석 결과를 참고하여, 반드시 다음 후보자명 중에서 가장 적합한 후보자 한 명을 추천하세요.
+
+후보자명 리스트: ${candidateNames.map((n: string) => `"${n}"`).join(", ")}
+
+🎯 추천 기준:
+- 후보자의 공약, 가치관, 리더십, 계층 및 지역 적합도를 종합 고려하세요.
+- 반드시 정책 실행 가능성, 실용성, 사용자 성향(중도, 실용주의 등)에 기반해 판단하세요.
+- 특정 정당 선호는 추천 판단에 영향을 주지 않도록 하세요. 성향/정책 일치도를 우선하세요.
+
+❗반드시 위 후보자명 중에서만 name 값을 선택하세요.
+❗다음 output 구조에 맞춰 모든 필드를 빠짐없이 채워서 반환하세요. 추가 JSON이나 설명은 포함하지 마세요.`,
   output: `{
     "name": "후보자 이름",
     "party": "정당",
@@ -314,18 +318,39 @@ function cosineSimilarity(vecA: number[], vecB: number[]): number {
 // 후보자 정보 보강 함수
 async function fillCandidateInfo(recommendation: any) {
   if (!recommendation?.name) return recommendation;
+  
   const candidate = await prisma.candidate.findFirst({
     where: { name: recommendation.name },
-    include: { policies: true }
+    include: { 
+      policies: {
+        orderBy: { order: 'asc' },
+        take: 3 // 상위 3개의 정책만 가져오기
+      }
+    }
   });
+
   if (!candidate) return recommendation;
+
+  // 이미지 URL이 없는 경우 기본 이미지 사용
+  const imageUrl = candidate.imageUrl || '/images/default-candidate.png';
+  
+  // 정책 정보 가져오기
+  const matchingPoints = candidate.policies.map((p: any) => ({
+    title: p.title,
+    description: p.summary,
+    details: {
+      goal: p.goal,
+      implementation: p.implementation,
+      duration: p.duration,
+      budget: p.budget
+    }
+  }));
+
   return {
     ...recommendation,
-    party: recommendation.party || candidate.party,
-    imageUrl: recommendation.imageUrl || (candidate && 'imageUrl' in candidate ? candidate.imageUrl : ''),
-    matchingPoints: (recommendation.matchingPoints && recommendation.matchingPoints.length > 0)
-      ? recommendation.matchingPoints
-      : candidate.policies.map((p: any) => p.title),
+    party: candidate.party,
+    imageUrl,
+    matchingPoints,
     differences: recommendation.differences || [],
   };
 }
@@ -337,7 +362,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   try {
     const { surveyAnswers, isQuickSurvey, isPersonalAnalysis } = req.body;
-    console.log('Received survey answers:', surveyAnswers);
+    console.log('=== API 입력 데이터 ===');
+    console.log('설문 응답:', JSON.stringify(surveyAnswers, null, 2));
+    console.log('빠른 설문 여부:', isQuickSurvey);
+    console.log('개인 분석 여부:', isPersonalAnalysis);
 
     if (!surveyAnswers) {
       return res.status(400).json({ 
@@ -368,26 +396,36 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       console.log('DB에서 가져온 후보자 데이터:', JSON.stringify(candidates, null, 2));
 
       // 2. 사용자 응답 벡터 변환 (1-5 스케일로 정규화)
-      const userVector = [
-        (Number(surveyAnswers.tax_welfare) - 1) / 4,
-        (Number(surveyAnswers.market_intervention) - 1) / 4,
-        (Number(surveyAnswers.climate_priority) - 1) / 4,
-        (Number(surveyAnswers.education_policy) - 1) / 4,
-        (Number(surveyAnswers.youth_policy) - 1) / 4,
-        (Number(surveyAnswers.regional_development) - 1) / 4,
-        (Number(surveyAnswers.security_policy) - 1) / 4,
-        (Number(surveyAnswers.digital_transformation) - 1) / 4,
-        (Number(surveyAnswers.political_reform) - 1) / 4,
-        (Number(surveyAnswers.economic_growth) - 1) / 4
+      const userVector: number[] = [
+        surveyAnswers.tax_welfare ? (Number(surveyAnswers.tax_welfare) - 1) / 4 : 0.5,
+        surveyAnswers.market_intervention ? (Number(surveyAnswers.market_intervention) - 1) / 4 : 0.5,
+        surveyAnswers.climate_priority ? (Number(surveyAnswers.climate_priority) - 1) / 4 : 0.5,
+        surveyAnswers.education_policy ? (Number(surveyAnswers.education_policy) - 1) / 4 : 0.5,
+        surveyAnswers.youth_policy ? (Number(surveyAnswers.youth_policy) - 1) / 4 : 0.5,
+        surveyAnswers.regional_development ? (Number(surveyAnswers.regional_development) - 1) / 4 : 0.5,
+        surveyAnswers.security_policy ? (Number(surveyAnswers.security_policy) - 1) / 4 : 0.5,
+        surveyAnswers.digital_transformation ? (Number(surveyAnswers.digital_transformation) - 1) / 4 : 0.5,
+        surveyAnswers.political_reform ? (Number(surveyAnswers.political_reform) - 1) / 4 : 0.5,
+        surveyAnswers.economic_growth ? (Number(surveyAnswers.economic_growth) - 1) / 4 : 0.5
       ];
 
+      console.log('User vector:', userVector);
+
+      // 벡터가 모두 0인 경우 기본값 설정
+      if (userVector.every(v => v === 0.5)) {
+        console.log('Warning: All user vector values are 0.5, using default values');
+        for (let i = 0; i < userVector.length; i++) {
+          userVector[i] = 0.5; // 중립적인 값으로 설정
+        }
+      }
+
       // 3. 각 후보자와의 유사도 계산
-      const matchScores = candidates.map(candidate => {
+      const matchScores = candidates.map((candidate: any) => {
         // 후보자의 정책 벡터 계산
         const policyVector = Array(10).fill(0);
         let totalCategories = 0;
         
-        candidate.policies.forEach(policy => {
+        candidate.policies.forEach((policy: any) => {
           const categories = policy.categories as string[];
           categories.forEach(category => {
             const mapped = categoryMap[category] || category;
@@ -416,14 +454,15 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
         // 정책 일치도 계산 (60% 이상 일치하는 정책)
         const matchingPoints = candidate.policies
-          .filter(p => {
+          .filter((p: any) => {
             const categories = p.categories as string[];
             return categories.some(category => {
               const index = policyCategories.indexOf(category);
               return index >= 0 && Math.abs(userVector[index] - policyVector[index]) < 0.4;
             });
           })
-          .map(p => p.title);
+          .map((p: any) => typeof p === 'string' ? p : (p.title || ''))
+          .filter((v: string) => !!v);
 
         // 디버깅 로그 추가
         console.log('후보:', candidate.name);
@@ -439,13 +478,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           score,
           matchingPoints,
           differences: candidate.policies
-            .filter(p => !matchingPoints.includes(p.title))
-            .map(p => p.title)
+            .filter((p: any) => !matchingPoints.includes(typeof p === 'string' ? p : (p.title || '')))
+            .map((p: any) => typeof p === 'string' ? p : (p.title || ''))
         };
       });
 
       // 4. 가장 높은 점수의 후보자 선택
-      const best = matchScores.reduce((prev, current) => 
+      const best = matchScores.reduce((prev: any, current: any) => 
         current.score > prev.score ? current : prev
       );
       const matchScore = Math.round(best.score * 100);
@@ -469,30 +508,87 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           valueBase,
           interests: topCategories,
           voteBase,
-          scores: {},
+          scores: Object.fromEntries(policyCategories.map((cat: string, idx: number) => [cat, userVector[idx]])),
           confidence: 1,
           reasoning
         }
       });
 
-      // 6. 추천 결과 생성
-      const recommendation = await prisma.recommendation.create({
-        data: {
-          orientationId: savedOrientation.id,
-          candidateId: best.candidate.id.toString(),
-          matchScore: matchScore,
-          matchingPoints: best.matchingPoints,
-          differences: best.differences,
-          recommendation: `${best.candidate.name} 후보는 사용자의 응답과 ${topCategories.join(', ')} 분야 정책/가치관이 가장 유사합니다.`,
-          detailedAnalysis: {
-            policyMatch: { score: matchScore, reason: '정책 일치도 분석' },
-            valueMatch: { score: matchScore, reason: '가치관 일치도 분석' },
-            demographicMatch: { score: matchScore, reason: '지역/계층 특성 분석' },
-            leadershipMatch: { score: matchScore, reason: '리더십 스타일 분석' }
-          }
-        }
-      });
+      // 6. 추천 결과 생성 (DB 저장용)
+      // 후보자 id 검증 및 매핑
+      console.log('=== 후보자 매핑 시작 ===');
+      console.log('best.candidate:', best.candidate);
 
+      let candidateId = best.candidate.id;
+      let candidate = await prisma.candidate.findUnique({ where: { id: candidateId } });
+      console.log('findUnique by id:', candidate);
+      console.log('candidateId 값:', candidateId, '타입:', typeof candidateId, '길이:', candidateId?.length);
+
+      if (!candidate) {
+        // 이름 정규화(공백, 대소문자, 특수문자 제거)
+        const cleanedName = String(best.candidate.name).replace(/[^\w가-힣]/g, '').toLowerCase();
+        const allCandidates = await prisma.candidate.findMany();
+        const allCandidatesTyped: any[] = allCandidates;
+        candidate = allCandidatesTyped.find((c: any) => c.name.replace(/[^\w가-힣]/g, '').toLowerCase() === cleanedName);
+        if (candidate) {
+          candidateId = candidate.id;
+        } else {
+          console.error('존재하지 않는 후보자 id:', candidateId, '이름:', best.candidate.name);
+          // Recommendation 저장하지 않고 에러 리턴
+          return res.status(400).json({
+            success: false,
+            error: '추천 후보자를 찾을 수 없습니다.',
+            message: `DB에 존재하지 않는 후보자: ${best.candidate.name}`
+          });
+        }
+      }
+
+      // 최종적으로 DB에 존재하는지 한 번 더 검증
+      const candidateCheck = await prisma.candidate.findUnique({ where: { id: candidateId } });
+      console.log('최종 candidateCheck:', candidateCheck);
+      if (!candidateId || !candidateCheck) {
+        console.error('최종적으로 DB에 존재하지 않는 candidateId:', candidateId);
+        analysisResult = {
+          politicalOrientation: {
+            tendency,
+            valueBase,
+            interests: topCategories,
+            voteBase
+          },
+          scores: Object.fromEntries(policyCategories.map((cat: string, idx: number) => [cat, userVector[idx]])),
+          confidence: 1,
+          reasoning,
+          recommendations: []
+        };
+        return;
+      }
+
+      // Recommendation 생성 전, 해당 orientationId로 이미 Recommendation이 있는지 확인
+      let recommendation = await prisma.recommendation.findUnique({ where: { orientationId: savedOrientation.id } });
+      const recommendationData = {
+        orientationId: savedOrientation.id,
+        candidateId: candidateId,
+        matchScore: matchScore,
+        matchingPoints: best.matchingPoints, // string[]만!
+        differences: best.differences,
+        recommendation: `${best.candidate.name} 후보는 사용자의 응답과 ${topCategories.join(', ')} 분야 정책/가치관이 가장 유사합니다.`,
+        detailedAnalysis: {
+          policyMatch: { score: matchScore, reason: '정책 일치도 분석' },
+          valueMatch: { score: matchScore, reason: '가치관 일치도 분석' },
+          demographicMatch: { score: matchScore, reason: '지역/계층 특성 분석' },
+          leadershipMatch: { score: matchScore, reason: '리더십 스타일 분석' }
+        }
+      };
+      if (recommendation) {
+        recommendation = await prisma.recommendation.update({
+          where: { orientationId: savedOrientation.id },
+          data: recommendationData
+        });
+      } else {
+        recommendation = await prisma.recommendation.create({ data: recommendationData });
+      }
+
+      // === 결과 구조를 results/[id].tsx에서 사용하는 구조로 변환 ===
       analysisResult = {
         politicalOrientation: {
           tendency,
@@ -500,235 +596,233 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           interests: topCategories,
           voteBase
         },
-        scores: Object.fromEntries(policyCategories.map((cat, idx) => [cat, userVector[idx]])),
+        scores: Object.fromEntries(policyCategories.map((cat: string, idx: number) => [cat, userVector[idx]])),
         confidence: 1,
         reasoning,
-        recommendation: await fillCandidateInfo({
-          name: best.candidate.name,
-          party: best.candidate.party,
-          imageUrl: '',
-          matchScore: matchScore,
-          recommendation: `${best.candidate.name} 후보는 사용자의 응답과 ${topCategories.join(', ')} 분야 정책/가치관이 가장 유사합니다.`,
-          matchingPoints: best.matchingPoints,
-          differences: best.differences,
-          detailedAnalysis: {
-            policyMatch: { score: matchScore, reason: '정책 일치도 분석' },
-            valueMatch: { score: matchScore, reason: '가치관 일치도 분석' },
-            demographicMatch: { score: matchScore, reason: '지역/계층 특성 분석' },
-            leadershipMatch: { score: matchScore, reason: '리더십 스타일 분석' }
+        recommendations: [
+          {
+            name: best.candidate.name,
+            party: best.candidate.party,
+            imageUrl: best.candidate.imageUrl || '',
+            matchScore: matchScore,
+            slogan: '', // 빠른 설문에는 슬로건 없음
+            recommendation: recommendationData.recommendation,
+            matchingPoints: best.matchingPoints,
+            differences: best.differences,
+            detailedAnalysis: recommendationData.detailedAnalysis,
+            policies: (best.candidate.policies || []).slice(0, 3).map((p: any) => ({
+              title: p.title,
+              summary: '',
+              goal: '',
+              implementation: '',
+              duration: '',
+              budget: ''
+            }))
           }
-        })
+        ]
       };
+      // === 변환 끝 ===
+      // DB 저장 없이 결과만 반환
+      return res.status(200).json({
+        success: true,
+        result: analysisResult
+      });
     } else if (isPersonalAnalysis) {
-      let content = '';
-      try {
-        const completion = await openai.chat.completions.create({
-          model: "gpt-3.5-turbo",
-          messages: [
-            { role: "system", content: personalAnalysisPrompt.role },
-            { role: "user", content: `# 역할\n${personalAnalysisPrompt.role}\n\n# 작업\n${personalAnalysisPrompt.task}\n\n# output(반드시 아래 구조의 JSON만 반환하세요)\n${personalAnalysisPrompt.output}` }
-          ],
-          temperature: 0.7,
-          max_tokens: 1000,
-          response_format: { type: "json_object" }
-        });
-        content = completion.choices[0].message.content ?? '';
-        if (!content) throw new Error('분석 결과를 생성하지 못했습니다. 잠시 후 다시 시도해주세요.');
-        const jsonMatch = content.match(/\{[\s\S]*\}/);
-        if (!jsonMatch) throw new Error('분석 결과를 처리하지 못했습니다. 잠시 후 다시 시도해주세요.');
-        analysisResult = JSON.parse(jsonMatch[0]);
+      // 1. 데이터 가공
+      console.log('=== 1단계: 데이터 가공 시작 ===');
+      console.log('입력 데이터:', surveyAnswers);
+      const processedDataResponse = await openai.chat.completions.create({
+        model: "gpt-3.5-turbo",
+        messages: [
+          { role: "system", content: dataProcessingPrompt.role },
+          { role: "user", content: `아래 텍스트를 분석하여 JSON 형식으로 응답해주세요.\n\n${dataProcessingPrompt.task}\n\n${dataProcessingPrompt.output}\n\n입력 텍스트:\n${surveyAnswers}` }
+        ],
+        temperature: 0.7,
+        response_format: { type: "json_object" }
+      });
+      console.log('OpenAI 응답:', processedDataResponse.choices[0].message.content);
+      const processedData = JSON.parse(processedDataResponse.choices[0].message.content ?? '{}');
 
-        // 후보자 추천 결과를 analysisResult에 포함
-        const recommendCompletion = await openai.chat.completions.create({
-          model: "gpt-3.5-turbo",
-          messages: [
-            { role: "system", content: candidateRecommendationPrompt.role },
-            { role: "user", content: `${candidateRecommendationPrompt.task}\n\n정치 성향 분석 결과:\n${JSON.stringify(analysisResult, null, 2)}\n\n${candidateRecommendationPrompt.output}` }
-          ],
-          temperature: 0.7,
-          max_tokens: 1000,
-          response_format: { type: "json_object" }
-        });
-        const recommendContent = recommendCompletion.choices[0].message.content ?? '';
-        if (!recommendContent) throw new Error('후보자 추천 결과를 생성하지 못했습니다. 잠시 후 다시 시도해주세요.');
-        
-        let recommendResult = JSON.parse(recommendContent);
-        
-        // 후보자 이름 DB 검증 및 유사 후보자 매칭
-        let candidate = await prisma.candidate.findFirst({ where: { name: recommendResult.name } });
-        if (!candidate) {
-          const allCandidates = await prisma.candidate.findMany({ select: { name: true, party: true } });
-          const cleanedName = recommendResult.name.replace(/\s+/g, '');
-          const similar = allCandidates.find(c => c.name.replace(/\s+/g, '').includes(cleanedName) || cleanedName.includes(c.name.replace(/\s+/g, '')));
-          if (similar) {
-            // name, party만 안전하게 사용
-            recommendResult.name = similar.name;
-            recommendResult.party = similar.party;
-            candidate = null; // id, partyId 등은 없음
-          }
+      // 2. 정치 성향 저장
+      const savedOrientation = await prisma.politicalOrientation.create({
+        data: {
+          rawInput: JSON.stringify(surveyAnswers),
+          tendency: processedData.processedData.tendency,
+          valueBase: processedData.processedData.valueBase,
+          interests: processedData.processedData.interests,
+          voteBase: processedData.processedData.voteBase,
+          scores: processedData.processedData.preferences,
+          confidence: processedData.confidence,
+          reasoning: processedData.reasoning
         }
-        // DB에서 확인된 후보자 정보로 업데이트 (id, partyId 등은 allCandidates에는 없음)
-        if (candidate && 'party' in candidate) {
-          recommendResult.party = candidate.party;
-        } else if (!recommendResult.party) {
-          recommendResult.party = '알 수 없음';
-        }
+      });
 
-        // analysisResult에 recommendation 필드 추가
-        analysisResult.recommendation = recommendResult;
-      } catch (parseError) {
-        console.error('JSON 파싱 오류:', parseError);
-        if (typeof parseError === 'object' && parseError !== null && 'message' in parseError) {
-          console.error('실제 OpenAI 응답:', content);
-        }
-        // 파싱 오류 시 fallback 데이터 반환
-        return res.status(200).json({
-          success: false,
-          message: 'AI 분석 결과를 처리하지 못했습니다. 기본 결과만 제공됩니다.',
-          result: {
-            politicalOrientation: {
-              tendency: '분석 실패',
-              valueBase: '분석 실패',
-              interests: [],
-              voteBase: '분석 실패'
-            },
-            scores: {},
-            confidence: 0,
-            reasoning: '분석 실패',
-            recommendation: null
+      // 3. 후보자 추천
+      const recommendationResponse = await openai.chat.completions.create({
+        model: "gpt-3.5-turbo",
+        messages: [
+          {
+            role: "system",
+            content: candidateRecommendationPrompt.role
+          },
+          {
+            role: "user",
+            content:
+              `${candidateRecommendationPrompt.task}\n\n` +
+              `성향 분석 결과는 아래와 같습니다:\n` +
+              `\`\`\`json\n${JSON.stringify(processedData.processedData, null, 2)}\n\`\`\`\n\n` +
+              `다음 output 구조에 맞춰 JSON만 반환하세요:\n` +
+              `${candidateRecommendationPrompt.output}`
           }
-        });
+        ],
+        temperature: 0.7,
+        response_format: { type: "json_object" }
+      });
+
+      const recommendation = JSON.parse(recommendationResponse.choices[0].message.content ?? '{}');
+
+      // 4. 추천 결과 저장
+      let candidateId = recommendation.name || '';
+      if (candidateId) {
+        // 공백 제거 후 매칭
+        const allCandidates = await prisma.candidate.findMany();
+        const cleanedName = String(candidateId).replace(/\s+/g, '');
+        const candidate = allCandidates.find((c: any) => c.name.replace(/\s+/g, '') === cleanedName);
+        if (candidate) {
+          candidateId = candidate.id;
+        } else {
+          console.error('추천 후보자의 uuid를 찾을 수 없습니다:', candidateId);
+          candidateId = undefined; // candidateId를 undefined로 설정하여 외래 키 제약 조건 위반 방지
+        }
       }
+
+      analysisResult = {
+        politicalOrientation: processedData.processedData,
+        scores: processedData.processedData.preferences,
+        confidence: processedData.confidence,
+        reasoning: processedData.reasoning,
+        recommendation: await fillCandidateInfo(recommendation)
+      };
     } else {
       // 정밀 분석: 1단계 데이터 가공 → 2단계 정치 성향 분석
-      let processingContent = '';
-      let analysisContent = '';
-      try {
-        const processingCompletion = await openai.chat.completions.create({
-          model: "gpt-3.5-turbo",
-          messages: [
-            { role: "system", content: dataProcessingPrompt.role },
-            { role: "user", content: `# 역할\n${dataProcessingPrompt.role}\n\n# 작업\n${dataProcessingPrompt.task}\n\n# output(반드시 아래 구조의 JSON만 반환하세요)\n${dataProcessingPrompt.output}` }
-          ],
-          temperature: 0.7,
-          max_tokens: 1000,
-          response_format: { type: "json_object" }
-        });
-        processingContent = processingCompletion.choices[0].message.content ?? '';
-        if (!processingContent) throw new Error('데이터 처리 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.');
-        const jsonMatch = processingContent.match(/\{[\s\S]*\}/);
-        if (!jsonMatch) throw new Error('데이터 처리 결과를 확인하지 못했습니다. 잠시 후 다시 시도해주세요.');
-        const processedData = JSON.parse(jsonMatch[0]);
-        const analysisCompletion = await openai.chat.completions.create({
-          model: "gpt-3.5-turbo",
-          messages: [
-            { role: "system", content: detailedAnalysisPrompt.role },
-            { role: "user", content: `# 역할\n${detailedAnalysisPrompt.role}\n\n# 작업\n${detailedAnalysisPrompt.task}\n\n# output(반드시 아래 구조의 JSON만 반환하세요)\n${detailedAnalysisPrompt.output}` }
-          ],
-          temperature: 0.7,
-          max_tokens: 1000,
-          response_format: { type: "json_object" }
-        });
-        analysisContent = analysisCompletion.choices[0].message.content ?? '';
-        if (!analysisContent) throw new Error('정치 성향 분석 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.');
-        const analysisJsonMatch = analysisContent.match(/\{[\s\S]*\}/);
-        if (!analysisJsonMatch) throw new Error('분석 결과를 확인하지 못했습니다. 잠시 후 다시 시도해주세요.');
-        analysisResult = JSON.parse(analysisJsonMatch[0]);
+      console.log('=== 1단계: 데이터 가공 시작 ===');
+      console.log('입력 데이터:', surveyAnswers);
+      const processedDataResponse = await openai.chat.completions.create({
+        model: "gpt-3.5-turbo",
+        messages: [
+          { role: "system", content: dataProcessingPrompt.role },
+          { role: "user", content: `아래 텍스트를 분석하여 JSON 형식으로 응답해주세요.\n\n${dataProcessingPrompt.task}\n\n${dataProcessingPrompt.output}\n\n입력 텍스트:\n${surveyAnswers}` }
+        ],
+        temperature: 0.7,
+        response_format: { type: "json_object" }
+      });
+      console.log('OpenAI 응답:', processedDataResponse.choices[0].message.content);
+      const processedData = JSON.parse(processedDataResponse.choices[0].message.content ?? '{}');
 
-        // 후보자 추천 결과를 analysisResult에 포함
-        const recommendCompletion = await openai.chat.completions.create({
-          model: "gpt-3.5-turbo",
-          messages: [
-            { role: "system", content: candidateRecommendationPrompt.role },
-            { role: "user", content: `${candidateRecommendationPrompt.task}\n\n정치 성향 분석 결과:\n${JSON.stringify(analysisResult, null, 2)}\n\n${candidateRecommendationPrompt.output}` }
-          ],
-          temperature: 0.7,
-          max_tokens: 1000,
-          response_format: { type: "json_object" }
-        });
-        const recommendContent = recommendCompletion.choices[0].message.content ?? '';
-        if (!recommendContent) throw new Error('후보자 추천 결과를 생성하지 못했습니다. 잠시 후 다시 시도해주세요.');
-        
-        let recommendResult = JSON.parse(recommendContent);
-        
-        // 후보자 이름 DB 검증 및 유사 후보자 매칭
-        let candidate = await prisma.candidate.findFirst({ where: { name: recommendResult.name } });
-        if (!candidate) {
-          const allCandidates = await prisma.candidate.findMany({ select: { name: true, party: true } });
-          const cleanedName = recommendResult.name.replace(/\s+/g, '');
-          const similar = allCandidates.find(c => c.name.replace(/\s+/g, '').includes(cleanedName) || cleanedName.includes(c.name.replace(/\s+/g, '')));
-          if (similar) {
-            // name, party만 안전하게 사용
-            recommendResult.name = similar.name;
-            recommendResult.party = similar.party;
-            candidate = null; // id, partyId 등은 없음
-          }
+      // 2. 정치 성향 저장
+      const savedOrientation = await prisma.politicalOrientation.create({
+        data: {
+          rawInput: JSON.stringify(surveyAnswers),
+          tendency: processedData.processedData.tendency,
+          valueBase: processedData.processedData.valueBase,
+          interests: processedData.processedData.interests,
+          voteBase: processedData.processedData.voteBase,
+          scores: processedData.processedData.preferences,
+          confidence: processedData.confidence,
+          reasoning: processedData.reasoning
         }
-        // DB에서 확인된 후보자 정보로 업데이트 (id, partyId 등은 allCandidates에는 없음)
-        if (candidate && 'party' in candidate) {
-          recommendResult.party = candidate.party;
-        } else if (!recommendResult.party) {
-          recommendResult.party = '알 수 없음';
-        }
+      });
 
-        // analysisResult에 recommendation 필드 추가
-        analysisResult.recommendation = recommendResult;
-      } catch (parseError) {
-        console.error('JSON 파싱 오류:', parseError);
-        if (typeof parseError === 'object' && parseError !== null && 'message' in parseError) {
-          console.error('실제 OpenAI 응답:', processingContent || analysisContent);
-        }
-        // 파싱 오류 시 fallback 데이터 반환
-        return res.status(200).json({
-          success: false,
-          message: 'AI 분석 결과를 처리하지 못했습니다. 기본 결과만 제공됩니다.',
-          result: {
-            politicalOrientation: {
-              tendency: '분석 실패',
-              valueBase: '분석 실패',
-              interests: [],
-              voteBase: '분석 실패'
-            },
-            scores: {},
-            confidence: 0,
-            reasoning: '분석 실패',
-            recommendation: null
+      // 3. 후보자 추천
+      const recommendationResponse = await openai.chat.completions.create({
+        model: "gpt-3.5-turbo",
+        messages: [
+          {
+            role: "system",
+            content: candidateRecommendationPrompt.role
+          },
+          {
+            role: "user",
+            content:
+              `${candidateRecommendationPrompt.task}\n\n` +
+              `성향 분석 결과는 아래와 같습니다:\n` +
+              `\`\`\`json\n${JSON.stringify(processedData.processedData, null, 2)}\n\`\`\`\n\n` +
+              `다음 output 구조에 맞춰 JSON만 반환하세요:\n` +
+              `${candidateRecommendationPrompt.output}`
           }
-        });
+        ],
+        temperature: 0.7,
+        response_format: { type: "json_object" }
+      });
+
+      const recommendation = JSON.parse(recommendationResponse.choices[0].message.content ?? '{}');
+
+      // 4. 추천 결과 저장
+      let candidateId = recommendation.name || '';
+      if (candidateId) {
+        // 공백 제거 후 매칭
+        const allCandidates = await prisma.candidate.findMany();
+        const cleanedName = String(candidateId).replace(/\s+/g, '');
+        const candidate = allCandidates.find((c: any) => c.name.replace(/\s+/g, '') === cleanedName);
+        if (candidate) {
+          candidateId = candidate.id;
+        } else {
+          console.error('추천 후보자의 uuid를 찾을 수 없습니다:', candidateId);
+          candidateId = undefined; // candidateId를 undefined로 설정하여 외래 키 제약 조건 위반 방지
+        }
       }
+
+      analysisResult = {
+        politicalOrientation: processedData.processedData,
+        scores: processedData.processedData.preferences,
+        confidence: processedData.confidence,
+        reasoning: processedData.reasoning,
+        recommendation: await fillCandidateInfo(recommendation)
+      };
     }
 
     // 2. DB 저장 (정치 성향)
     const savedOrientation = await prisma.politicalOrientation.create({
       data: {
         rawInput: JSON.stringify(surveyAnswers),
-        tendency: analysisResult.politicalOrientation.tendency,
-        valueBase: Array.isArray(analysisResult.politicalOrientation.valueBase)
-          ? analysisResult.politicalOrientation.valueBase.join(', ')
-          : analysisResult.politicalOrientation.valueBase,
-        interests: analysisResult.politicalOrientation.interests,
-        voteBase: analysisResult.politicalOrientation.voteBase,
-        scores: analysisResult.scores,
-        confidence: analysisResult.confidence,
-        reasoning: analysisResult.reasoning
+        tendency: analysisResult?.politicalOrientation?.tendency || '분석 중',
+        valueBase: analysisResult?.politicalOrientation?.valueBase || '분석 중',
+        interests: analysisResult?.politicalOrientation?.interests || ['분석 중'],
+        voteBase: analysisResult?.politicalOrientation?.voteBase || '분석 중',
+        scores: analysisResult?.scores || {},
+        confidence: analysisResult?.confidence || 0,
+        reasoning: analysisResult?.reasoning || ''
       }
     });
 
     // 3. 후보자 추천 결과 저장
+    let candidateId = analysisResult?.recommendation?.name || '';
+    if (candidateId) {
+      // 공백 제거 후 매칭
+      const allCandidates = await prisma.candidate.findMany();
+      const cleanedName = String(candidateId).replace(/\s+/g, '');
+      const candidate = allCandidates.find((c: any) => c.name.replace(/\s+/g, '') === cleanedName);
+      if (candidate) {
+        candidateId = candidate.id;
+      } else {
+        throw new Error('추천 후보자의 uuid를 찾을 수 없습니다.');
+      }
+    }
     const savedRecommendation = await prisma.recommendation.create({
       data: {
         orientationId: savedOrientation.id,
-        candidateId: analysisResult.recommendation.name,
-        matchScore: analysisResult.recommendation.matchScore,
-        matchingPoints: analysisResult.recommendation.matchingPoints,
-        differences: analysisResult.recommendation.differences,
-        recommendation: analysisResult.recommendation.recommendation,
-        detailedAnalysis: analysisResult.recommendation.detailedAnalysis
+        candidateId: candidateId && candidateId !== '' ? candidateId : undefined,
+        matchScore: analysisResult?.recommendation?.matchScore || 0,
+        matchingPoints: analysisResult?.recommendation?.matchingPoints || [],
+        differences: analysisResult?.recommendation?.differences || [],
+        recommendation: analysisResult?.recommendation?.recommendation || '',
+        detailedAnalysis: analysisResult?.recommendation?.detailedAnalysis || {}
       }
     });
 
     // 4. 대시보드 통계 업데이트
     try {
+      if (analysisResult?.politicalOrientation && analysisResult?.recommendation) {
       await prisma.surveyStats.upsert({
         where: { id: 1 },
         update: {
@@ -736,17 +830,17 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           lastUpdated: new Date(),
           voteIntentCounts: {
             update: {
-              [analysisResult.politicalOrientation.voteBase]: { increment: 1 }
+                [analysisResult.politicalOrientation.voteBase || '분석 중']: { increment: 1 }
             }
           },
           partySupportCounts: {
             update: {
-              [analysisResult.recommendation.party]: { increment: 1 }
+                [analysisResult.recommendation.party || '알 수 없음']: { increment: 1 }
             }
           },
           keyIssuesCounts: {
             update: {
-              ...analysisResult.politicalOrientation.interests.reduce((acc: any, interest: string) => ({
+                ...(analysisResult.politicalOrientation.interests || ['분석 중']).reduce((acc: any, interest: string) => ({
                 ...acc,
                 [interest]: { increment: 1 }
               }), {})
@@ -758,30 +852,48 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           totalResponses: 1,
           lastUpdated: new Date(),
           voteIntentCounts: {
-            [analysisResult.politicalOrientation.voteBase]: 1
+              [analysisResult.politicalOrientation.voteBase || '분석 중']: 1
           },
           partySupportCounts: {
-            [analysisResult.recommendation.party]: 1
+              [analysisResult.recommendation.party || '알 수 없음']: 1
           },
           keyIssuesCounts: {
-            ...analysisResult.politicalOrientation.interests.reduce((acc: any, interest: string) => ({
+              ...(analysisResult.politicalOrientation.interests || ['분석 중']).reduce((acc: any, interest: string) => ({
               ...acc,
               [interest]: 1
             }), {})
           }
         }
       });
+      }
     } catch (error) {
       console.error('대시보드 통계 업데이트 실패:', error);
       // 통계 업데이트 실패는 전체 프로세스를 중단하지 않음
     }
 
     // 5. 결과 반환
-    return res.status(200).json({
+    const responseData = {
       success: true,
-      result: analysisResult,
+      result: {
+        ...analysisResult,
+        candidateImageUrls: {
+          "이재명": "https://cdn.nec.go.kr/photo_20250603/Gsg1/Hb100153692/gicho/thumbnail.100153692.JPG",
+          "김문수": "https://cdn.nec.go.kr/photo_20250603/Gsg1/Hb100153710/gicho/thumbnail.100153710.JPG",
+          "이준석": "https://cdn.nec.go.kr/photo_20250603/Gsg1/Hb100153689/gicho/thumbnail.100153689.JPG",
+          "권영국": "https://cdn.nec.go.kr/photo_20250603/Gsg1/Hb100153725/gicho/thumbnail.100153725.JPG",
+          "황교안": "https://cdn.nec.go.kr/photo_20250603/Gsg1/Hb100153708/gicho/thumbnail.100153708.JPG",
+          "송진호": "https://cdn.nec.go.kr/photo_20250603/Gsg1/Hb100153708/gicho/thumbnail.100153708.JPG"
+        }
+      },
       orientationId: savedOrientation.id
-    });
+    };
+
+    console.log('=== API 출력 데이터 ===');
+    console.log('분석 결과:', JSON.stringify(analysisResult, null, 2));
+    console.log('저장된 정치 성향 ID:', savedOrientation.id);
+    console.log('최종 응답 데이터:', JSON.stringify(responseData, null, 2));
+
+    return res.status(200).json(responseData);
   } catch (error) {
     console.error('Error analyzing orientation:', error);
     const errorMessage = error instanceof Error ? error.message : '분석 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.';

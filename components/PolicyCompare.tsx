@@ -101,27 +101,6 @@ function Header() {
   );
 }
 
-// 푸터 컴포넌트
-function Footer() {
-  return (
-    <footer className="w-full bg-gray-100 text-gray-500 py-4 mt-12 border-t">
-      <div className="max-w-5xl mx-auto px-4 text-xs flex flex-col md:flex-row justify-between items-center gap-2">
-        <div>
-          <h3 className="text-lg font-semibold mb-4">서비스</h3>
-          <ul className="space-y-2">
-            <li><button className="hover:text-blue-400 transition-colors text-left w-full">후보자 비교</button></li>
-            <li><button className="hover:text-blue-400 transition-colors text-left w-full">AI 추천</button></li>
-            <li><button className="hover:text-blue-400 transition-colors text-left w-full">여론조사 대시보드</button></li>
-            <li><a href="/info" className="hover:text-blue-400 transition-colors text-left w-full block">서비스 소개</a></li>
-          </ul>
-        </div>
-        <span>© 2025 정치 성향 분석 서비스. All rights reserved.</span>
-        <span>문의: aipoliticslab@gmail.com</span>
-      </div>
-    </footer>
-  );
-}
-
 // 후보명에서 공백 제거 함수
 const normalizeName = (name: string) => name.replace(/\s/g, '');
 
@@ -280,12 +259,17 @@ export default function PolicyCompare() {
   };
 
   // 후보 정렬
-  const sortedCandidates: Candidate[] = candidateOrder
-    .map((name) => candidates.find((c: Candidate) => normalizeName(c.name) === normalizeName(name)))
-    .filter((c): c is Candidate => !!c);
-  const sortedSelectedCandidates: Candidate[] = candidateOrder
-    .map((name) => sortedCandidates.find((c: Candidate) => normalizeName(c.name) === normalizeName(name)))
-    .filter((c): c is Candidate => !!c && selectedCandidates.includes(c.id));
+  const sortedCandidates: Candidate[] = Array.isArray(candidates) 
+    ? candidateOrder
+        .map((name) => candidates.find((c: Candidate) => normalizeName(c.name) === normalizeName(name)))
+        .filter((c): c is Candidate => !!c)
+    : [];
+
+  const sortedSelectedCandidates: Candidate[] = Array.isArray(sortedCandidates)
+    ? candidateOrder
+        .map((name) => sortedCandidates.find((c: Candidate) => normalizeName(c.name) === normalizeName(name)))
+        .filter((c): c is Candidate => !!c)
+    : [];
 
   // 카테고리 통합 적용
   const allCategories = Array.from(
@@ -553,15 +537,6 @@ export default function PolicyCompare() {
           </button>
         </div>
       </main>
-      <Footer />
-      {selectedPolicy && (
-        <PolicyModal
-          policy={selectedPolicy.policy}
-          candidate={selectedPolicy.candidate}
-          isOpen={true}
-          onClose={() => setSelectedPolicy(null)}
-        />
-      )}
       <FeedbackModal
         isOpen={isFeedbackModalOpen}
         onClose={() => setIsFeedbackModalOpen(false)}

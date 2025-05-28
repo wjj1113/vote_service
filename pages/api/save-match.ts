@@ -10,18 +10,18 @@ export default async function handler(
   }
 
   try {
-    const { recommendation, match } = req.body;
-
-    const savedMatch = await prisma.matchResponse.create({
+    const { orientationId, candidateId, matched } = req.body;
+    if (!orientationId || !candidateId || typeof matched !== 'boolean') {
+      return res.status(400).json({ message: '필수 값 누락' });
+    }
+    const saved = await prisma.matchFeedback.create({
       data: {
-        recommendedCandidate: recommendation.추천후보자,
-        recommendationReason: recommendation.추천사유,
-        keyPolicies: recommendation.핵심공약요약,
-        matched: match,
+        orientationId: Number(orientationId),
+        candidateId: String(candidateId),
+        matched: Boolean(matched),
       },
     });
-
-    res.status(200).json(savedMatch);
+    res.status(200).json(saved);
   } catch (error) {
     console.error('Error saving match:', error);
     res.status(500).json({ message: 'Error saving match response' });

@@ -1,0 +1,126 @@
+require('dotenv').config();
+const { createClient } = require('@supabase/supabase-js');
+const fs = require('fs');
+const path = require('path');
+const { v4: uuidv4 } = require('uuid');
+
+const supabaseUrl = process.env.SUPABASE_URL;
+const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+if (!supabaseUrl || !supabaseKey) {
+  console.error('Error: SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY must be set in .env file');
+  process.exit(1);
+}
+
+const supabase = createClient(supabaseUrl, supabaseKey);
+
+async function restoreData() {
+  try {
+    // 1. 기존 데이터 삭제
+    console.log('Cleaning up existing data...');
+    await supabase.from('Policy').delete().neq('id', 'dummy');
+    await supabase.from('Candidate').delete().neq('id', 'dummy');
+    await supabase.from('Party').delete().neq('id', 0);
+
+    // 2. JSON 파일 읽기
+    console.log('Reading data from JSON file...');
+    const filePath = path.join(process.cwd(), 'db_list_clean.json');
+    const jsonData = fs.readFileSync(filePath, 'utf8');
+    const data = JSON.parse(jsonData);
+
+    // 3. 정당 데이터 복원
+    console.log('Restoring party data...');
+    const parties = new Set(data.candidates.map((c: any) => c.party));
+    const partyMap = new Map();
+
+    for (const partyName of parties) {
+      const { data: insertedParty, error: partyError } = await supabase
+        .from('Party')
+        .insert({
+          name: partyName,
+          policy: ''
+        })
+        .select()
+        .single();
+
+      if (partyError) {
+        if (partyError.code === '23505') {
+          const { data: existingParty, error: fetchError } = await supabase
+            .from('Party')
+            .select('id')
+            .eq('name', partyName)
+            .single();
+          
+          if (fetchError || !existingParty) {
+            console.error(`Error fetching existing party ${partyName}:`, fetchError);
+            continue;
+          }
+          partyMap.set(partyName, existingParty.id);
+        } else {
+          console.error(`Error inserting party ${partyName}:`, partyError);
+          continue;
+        }
+      } else {
+        partyMap.set(partyName, insertedParty.id);
+      }
+    }
+
+    // 4. 후보자 데이터 복원
+    console.log('Restoring candidate data...');
+    for (const candidate of data.candidates) {
+      const partyId = partyMap.get(candidate.party);
+      
+      if (!partyId) {
+        console.error(`Error: Party ID not found for ${candidate.party}`);
+        continue;
+      }
+
+      const { data: insertedCandidate, error: candidateError } = await supabase
+        .from('Candidate')
+        .insert({
+          id: uuidv4(),
+          name: candidate.name,
+          party: candidate.party,
+          partyId: partyId,
+          imageUrl: candidate.imageUrl || null
+        })
+        .select()
+        .single();
+
+      if (candidateError) {
+        console.error(`Error inserting candidate ${candidate.name}:`, candidateError);
+        continue;
+      }
+
+      // 5. 정책 데이터 복원
+      console.log(`Restoring policies for ${candidate.name}...`);
+      for (const pledge of candidate.pledges) {
+        const { error: policyError } = await supabase
+          .from('Policy')
+          .insert({
+            id: uuidv4(),
+            candidateId: insertedCandidate.id,
+            order: pledge.rank,
+            title: pledge.title,
+            categories: pledge.categories,
+            goal: pledge.goal,
+            implementation: pledge.methods.join('\n'),
+            duration: pledge.period,
+            budget: pledge.funding,
+            summary: pledge.goal.split('.')[0],
+            updatedAt: new Date().toISOString()
+          });
+
+        if (policyError) {
+          console.error(`Error inserting policy for ${candidate.name}:`, policyError);
+        }
+      }
+    }
+
+    console.log('Data restoration completed successfully!');
+  } catch (error) {
+    console.error('Data restoration failed:', error);
+  }
+}
+
+restoreData(); 

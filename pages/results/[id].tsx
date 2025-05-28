@@ -5,6 +5,7 @@ import { FaTwitter, FaCopy } from 'react-icons/fa';
 import { SiThreads } from 'react-icons/si';
 import { RiKakaoTalkFill } from 'react-icons/ri';
 import Script from 'next/script';
+import Popup from '../../components/Popup';
 
 interface AnalysisResult {
   politicalOrientation: {
@@ -22,7 +23,7 @@ interface AnalysisResult {
   };
   confidence: number;
   reasoning: string;
-  recommendation: {
+  recommendations: {
     name: string;
     party: string;
     imageUrl: string;
@@ -36,7 +37,9 @@ interface AnalysisResult {
       demographicMatch: { score: number; reason: string };
       leadershipMatch: { score: number; reason: string };
     };
-  } | null;
+    policies: any[];
+    slogan: string;
+  }[];
 }
 
 const LoadingState = () => {
@@ -118,8 +121,21 @@ const CandidateResult: React.FC<CandidateResultProps> = ({ resultData }) => {
     }
   }, []);
 
-  const handleAgreement = (agrees: boolean) => {
+  const handleAgreement = async (agrees: boolean) => {
     setUserAgreement(agrees);
+    try {
+      await fetch('/api/save-match', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          orientationId: id,
+          candidateId: resultData.recommendedCandidate.name,
+          matched: agrees
+        })
+      });
+    } catch (e) {
+      console.error('일치 여부 저장 실패:', e);
+    }
     console.log('사용자 동의 여부:', agrees);
   };
 
@@ -235,20 +251,20 @@ const CandidateResult: React.FC<CandidateResultProps> = ({ resultData }) => {
             
             {/* 추천 이유 */}
             <div className="bg-gray-900 p-6 rounded-lg mb-8">
-              <h3 className="flex items-center text-xl font-semibold text-gray-800 mb-3">
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-black mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <h3 className="flex items-center text-xl font-semibold text-white mb-3">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-white mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
                 </svg>
                 추천 이유
               </h3>
-              <p className="text-gray-700 leading-relaxed">
+              <p className="text-white leading-relaxed">
                 {resultData.recommendationReason}
               </p>
             </div>
             
             {/* 사용자 정치 성향 요약 */}
             <div className="bg-gray-900 p-6 rounded-lg mb-8">
-              <h3 className="text-xl font-semibold text-gray-800 mb-3">
+              <h3 className="text-xl font-semibold text-white mb-3">
                 당신의 정치 성향 요약
               </h3>
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -315,7 +331,7 @@ const CandidateResult: React.FC<CandidateResultProps> = ({ resultData }) => {
             {/* 동의 여부 */}
             {userAgreement === null && (
               <div className="bg-gray-900 p-6 rounded-lg text-center mb-8">
-                <h3 className="text-xl font-semibold text-gray-800 mb-3">
+                <h3 className="text-xl font-semibold text-white mb-3">
                   이 후보자가 내 성향과 일치한다고 생각하시나요?
                 </h3>
                 <div className="flex justify-center space-x-4">
@@ -413,56 +429,26 @@ export default function ResultsPage() {
   const [result, setResult] = useState<AnalysisResult | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [candidateData, setCandidateData] = useState<any>(null);
+  const [selectedCandidate, setSelectedCandidate] = useState<number>(0);
 
   useEffect(() => {
     const fetchResult = async () => {
       if (!id) return;
 
       try {
-        // URL에서 결과 데이터 확인
-        const resultData = router.query.result;
-        if (resultData && typeof resultData === 'string') {
-          const parsedResult = JSON.parse(resultData);
-          setResult(parsedResult);
-
-          // 후보자 정보 가져오기
-          if (parsedResult.recommendation?.name) {
-            const candidateResponse = await fetch(`/api/candidates/${encodeURIComponent(parsedResult.recommendation.name)}`);
-            const candidateData = await candidateResponse.json();
-            
-            if (candidateData.success) {
-              setCandidateData(candidateData.candidate);
-            } else {
-              console.error('후보자 정보를 가져오는데 실패했습니다:', candidateData.message);
-            }
+        const response = await fetch(`/api/analysis/${id}`, {
+          headers: {
+            'Cache-Control': 'no-cache',
+            'Pragma': 'no-cache'
           }
-          
-          setLoading(false);
-          return;
-        }
-
-        // 결과 데이터가 없는 경우 API 호출
-        const response = await fetch(`/api/analysis/${id}`);
+        });
         const data = await response.json();
         
-        if (!data.success) {
-          throw new Error(data.message || '분석 결과를 불러오는데 실패했습니다.');
+        if (!data) {
+          throw new Error('분석 결과를 불러오는데 실패했습니다.');
         }
         
-        setResult(data.result);
-
-        // 후보자 정보 가져오기
-        if (data.result.recommendation?.name) {
-          const candidateResponse = await fetch(`/api/candidates/${encodeURIComponent(data.result.recommendation.name)}`);
-          const candidateData = await candidateResponse.json();
-          
-          if (candidateData.success) {
-            setCandidateData(candidateData.candidate);
-          } else {
-            console.error('후보자 정보를 가져오는데 실패했습니다:', candidateData.message);
-          }
-        }
+        setResult(data);
       } catch (err) {
         setError(err instanceof Error ? err.message : '분석 결과를 불러오는데 실패했습니다.');
       } finally {
@@ -471,7 +457,7 @@ export default function ResultsPage() {
     };
 
     fetchResult();
-  }, [id, router.query]);
+  }, [id]);
 
   if (loading) {
     return <LoadingState />;
@@ -485,7 +471,7 @@ export default function ResultsPage() {
     </div>;
   }
 
-  if (!result || !result.recommendation) {
+  if (!result || !result.recommendations || result.recommendations.length === 0) {
     return <div className="min-h-screen flex flex-col items-center justify-center">
       <h2 className="text-2xl font-bold mb-4">추천 결과가 없습니다</h2>
       <p className="text-gray-600 mb-8">정치 성향 분석은 완료되었으나, 추천 후보자를 찾지 못했습니다.</p>
@@ -496,24 +482,24 @@ export default function ResultsPage() {
     </div>;
   }
 
-  // API 데이터를 CandidateResult 컴포넌트에 맞게 변환
+  const currentRecommendation = result.recommendations[selectedCandidate];
   const resultData = {
     recommendedCandidate: {
-      name: result.recommendation?.name || '',
-      party: result.recommendation?.party || '',
-      image: candidateImageUrls[stripHtmlTags(result.recommendation?.name || '').replace(/\s/g, '')] || result.recommendation?.imageUrl || '/images/default-candidate.png',
-      matchScore: result.recommendation?.matchScore || 0,
-      slogan: result.recommendation?.recommendation || ''
+      name: currentRecommendation.name,
+      party: currentRecommendation.party,
+      image: currentRecommendation.imageUrl || candidateImageUrls[currentRecommendation.name] || '/images/default-candidate.png',
+      matchScore: currentRecommendation.matchScore,
+      slogan: currentRecommendation.slogan || '주요 공약과 가치관을 확인해보세요'
     },
-    recommendationReason: result.recommendation?.recommendation || '',
-    keyPolicies: (result.recommendation?.matchingPoints || []).map((point, index) => ({
-      title: `핵심 공약 ${index + 1}`,
-      description: point,
+    recommendationReason: currentRecommendation.recommendation,
+    keyPolicies: currentRecommendation.policies.map((policy: any) => ({
+      title: policy.title,
+      description: policy.summary,
       details: {
-        goal: result.recommendation?.detailedAnalysis?.policyMatch?.reason || '',
-        implementation: result.recommendation?.detailedAnalysis?.valueMatch?.reason || '',
-        duration: result.recommendation?.detailedAnalysis?.demographicMatch?.reason || '',
-        budget: result.recommendation?.detailedAnalysis?.leadershipMatch?.reason || ''
+        goal: policy.goal,
+        implementation: policy.implementation,
+        duration: policy.duration,
+        budget: policy.budget
       }
     })),
     userType: 'gpt_new',
@@ -523,16 +509,12 @@ export default function ResultsPage() {
       policyInterests: result.politicalOrientation.interests,
       votingCriterion: result.politicalOrientation.voteBase
     },
-    detailedAnalysis: result.recommendation?.detailedAnalysis || {
-      policyMatch: { score: 0, reason: '' },
-      valueMatch: { score: 0, reason: '' },
-      demographicMatch: { score: 0, reason: '' },
-      leadershipMatch: { score: 0, reason: '' }
-    }
+    detailedAnalysis: currentRecommendation.detailedAnalysis
   };
 
   return (
-    <>
+    <div>
+      <Popup forceOpen={true} />
       <Script
         src="https://developers.kakao.com/sdk/js/kakao.js"
         strategy="afterInteractive"
@@ -542,7 +524,27 @@ export default function ResultsPage() {
           }
         }}
       />
-      <CandidateResult resultData={resultData} />
-    </>
+      <div className="min-h-screen bg-gradient-to-b from-gray-900 to-gray-50 py-10 px-4 sm:px-6 lg:px-8">
+        <div className="max-w-4xl mx-auto">
+          {/* 후보자 선택 탭 */}
+          <div className="flex justify-center space-x-4 mb-8">
+            {result.recommendations.map((rec, index) => (
+              <button
+                key={index}
+                className={`px-6 py-3 rounded-lg font-medium transition-colors duration-200 ${
+                  selectedCandidate === index
+                    ? 'bg-black text-white'
+                    : 'bg-white text-gray-800 hover:bg-gray-100'
+                }`}
+                onClick={() => setSelectedCandidate(index)}
+              >
+                {rec.name} ({rec.matchScore}%)
+              </button>
+            ))}
+          </div>
+          <CandidateResult resultData={resultData} />
+        </div>
+      </div>
+    </div>
   );
 } 

@@ -4,6 +4,7 @@ import GPTRecommendation from '../components/GPTRecommendation';
 import PolicyCompare from '../components/PolicyCompare';
 import PoliticalSurveyModal from '../components/PoliticalSurveyModal';
 import PoliticalSurveyDashboard from '../components/PoliticalSurveyDashboard';
+import Popup from '../components/Popup';
 
 export default function Home() {
   const [activeTab, setActiveTab] = useState<'service' | 'ai' | 'dashboard'>('service');
@@ -92,6 +93,7 @@ export default function Home() {
         <div className={activeTab === 'dashboard' ? 'block' : 'hidden'}>
           <PoliticalSurveyDashboard />
         </div>
+        <Popup />
       </main>
     </div>
   );

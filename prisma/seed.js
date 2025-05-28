@@ -70,8 +70,9 @@ async function main() {
     const createdCandidate = await prisma.candidate.create({
       data: {
         name: cand.name,
-        party: partyName || '무소속',
         partyId: party.id,
+        imageUrl: cand.imageUrl || null,
+        party: partyName || '무소속',
       },
     });
     for (const pledge of cand.pledges) {
@@ -190,6 +191,68 @@ async function main() {
 
   const surveyCount = await prisma.surveySubmission.count();
   console.log('SurveySubmission 시드 완료! 전체:', surveyCount);
+
+  // 정치 성향 분석 데이터 추가
+  const orientation = await prisma.politicalOrientation.create({
+    data: {
+      rawInput: '정치 성향 분석 데이터',
+      tendency: '진보',
+      valueBase: '평등, 사회 정의',
+      interests: ['환경 보호', '사회 복지'],
+      voteBase: '정책 기반',
+      scores: {
+        welfareEfficiency: 7,
+        environmentIndustry: 9,
+        socialFreedomControl: 9,
+        economicFreedomControl: 6,
+        progressiveConservative: 8
+      },
+      confidence: 0.85,
+      reasoning: {
+        welfareEfficiency: '사회 복지에 대한 지원과 효율성 사이의 균형을 추구',
+        environmentIndustry: '환경 보호를 중요하게 생각하며 산업 발전과 균형을 추구',
+        socialFreedomControl: '사회적 자유와 개인 권리 강조',
+        economicFreedomControl: '경제적 자유와 규제 사이에서 중간 정도의 선호',
+        progressiveConservative: '진보적인 가치관과 사회 정의에 대한 강한 지지'
+      }
+    }
+  });
+
+  // 추천 데이터 추가
+  const candidate = await prisma.candidate.findFirst({
+    where: { name: '이 재 명' }
+  });
+
+  if (candidate) {
+    await prisma.recommendation.create({
+      data: {
+        orientationId: orientation.id,
+        candidateId: candidate.id,
+        matchScore: 85,
+        matchingPoints: ['환경 보호 정책', '사회 복지 정책'],
+        differences: ['경제적 자유와 규제에 대한 선호도'],
+        recommendation: '정책적으로 가장 일치하며, 가치관과 지지층도 유사합니다.',
+        detailedAnalysis: {
+          valueMatch: {
+            score: 85,
+            reason: '진보적인 가치관과 사회 정의에 대한 공감'
+          },
+          policyMatch: {
+            score: 90,
+            reason: '환경 보호 및 사회 복지 정책에서 높은 일치도'
+          },
+          leadershipMatch: {
+            score: 85,
+            reason: '진보적 리더십 스타일과 일치'
+          },
+          demographicMatch: {
+            score: 80,
+            reason: '주로 도시 지역 및 중하층 계층 지지층'
+          }
+        }
+      }
+    });
+  }
 
   console.log('DB 시드 완료!');
 }

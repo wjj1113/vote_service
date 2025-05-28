@@ -8,25 +8,27 @@ datasource db {
 }
 
 model Party {
-  id         Int         @id @default(autoincrement())
+  id         String      @id @default(uuid())
   name       String      @unique
   policy     String
   candidates Candidate[]
 }
 
 model Candidate {
-  id          Int          @id @default(autoincrement())
+  id          String       @id @default(uuid())
   name        String
   party       String
-  partyId     Int
+  partyId     String
+  imageUrl    String?
   partyRel    Party        @relation(fields: [partyId], references: [id])
   policies    Policy[]
   voteIntents VoteIntent[]
+  recommendations Recommendation[]
 }
 
 model Policy {
   id             String    @id @default(uuid())
-  candidateId    Int
+  candidateId    String
   budget         String
   categories     String[]
   createdAt      DateTime  @default(now())
@@ -38,11 +40,13 @@ model Policy {
   title          String
   updatedAt      DateTime  @updatedAt
   candidate      Candidate @relation(fields: [candidateId], references: [id])
+
+  @@unique([candidateId, title])
 }
 
 model VoteIntent {
   id          Int       @id @default(autoincrement())
-  candidateId Int
+  candidateId String
   ageGroup    String
   region      String
   gender      String
@@ -104,6 +108,7 @@ model Recommendation {
   createdAt     DateTime             @default(now())
   updatedAt     DateTime             @updatedAt
   orientation   PoliticalOrientation @relation(fields: [orientationId], references: [id])
+  candidate     Candidate?           @relation(fields: [candidateId], references: [id])
 }
 
 model SurveySubmission {
@@ -149,4 +154,24 @@ model Feedback {
   id        Int      @id @default(autoincrement())
   content   String
   createdAt DateTime @default(now())
+}
+
+model Email {
+  id        Int      @id @default(autoincrement())
+  address   String   @unique
+  createdAt DateTime @default(now())
+}
+
+model Insight {
+  id        Int      @id @default(autoincrement())
+  content   String   @db.Text
+  createdAt DateTime @default(now())
+}
+
+model MatchFeedback {
+  id            Int      @id @default(autoincrement())
+  orientationId Int
+  candidateId   String
+  matched       Boolean
+  createdAt     DateTime @default(now())
 }

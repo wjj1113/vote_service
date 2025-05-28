@@ -25,19 +25,19 @@ const StatCard: React.FC<StatCardProps> = ({ title, value, subtitle, color = 'bl
 interface CustomTooltipProps {
   active?: boolean;
   payload?: any[];
-  label?: string;
 }
 
-const CustomTooltip: React.FC<CustomTooltipProps> = ({ active, payload, label }) => {
+const CustomTooltip: React.FC<CustomTooltipProps> = ({ active, payload }) => {
   if (active && payload && payload.length) {
+    const data = payload[0].payload;
     return (
       <div className="bg-white p-3 border border-gray-300 rounded shadow-lg">
-        <p className="font-medium">{`${label}`}</p>
+        <p className="font-medium">{data.label}</p>
         <p className="text-blue-600">
-          {`응답수: ${payload[0].value.toLocaleString()}명`}
+          {`응답수: ${data.count.toLocaleString()}명`}
         </p>
         <p className="text-gray-600">
-          {`비율: ${((payload[0].value / 2847) * 100).toFixed(1)}%`}
+          {`비율: ${data.percentage}%`}
         </p>
       </div>
     );
@@ -51,6 +51,7 @@ const PoliticalSurveyDashboard = () => {
   // 실시간 데이터 상태
   const [surveyData, setSurveyData] = useState<any | null>(null);
   const [loading, setLoading] = useState(true);
+  const [insight, setInsight] = useState<string>('');
 
   // 더미 데이터 (로딩/에러 fallback)
   const dummyData = {
@@ -115,12 +116,23 @@ const PoliticalSurveyDashboard = () => {
     const fetchStats = async () => {
       setLoading(true);
       try {
-        const res = await fetch('/api/survey-stats');
-        if (!res.ok) throw new Error('통계 데이터를 불러오지 못했습니다.');
-        const data = await res.json();
-        setSurveyData(data);
+        const [dashboardRes, insightRes] = await Promise.all([
+          fetch('/api/dashboard'),
+          fetch('/api/insight')
+        ]);
+        
+        if (!dashboardRes.ok) throw new Error('대시보드 데이터를 불러오지 못했습니다.');
+        if (!insightRes.ok) throw new Error('인사이트 데이터를 불러오지 못했습니다.');
+        
+        const [dashboardData, insightData] = await Promise.all([
+          dashboardRes.json(),
+          insightRes.json()
+        ]);
+        
+        setSurveyData(dashboardData);
+        setInsight(insightData.insight);
       } catch (error) {
-        console.error('통계 데이터 로딩 중 오류:', error);
+        console.error('데이터 로딩 중 오류:', error);
         setSurveyData(dummyData);
       } finally {
         setLoading(false);
@@ -135,8 +147,8 @@ const PoliticalSurveyDashboard = () => {
 
     ws.onmessage = (event) => {
       const update = JSON.parse(event.data);
-      if (update.type === 'stats_update') {
-        setSurveyData(prevData => ({
+      if (update.type === 'dashboard_update') {
+        setSurveyData((prevData: typeof surveyData) => ({
           ...prevData,
           ...update.data,
           lastUpdated: new Date().toLocaleString()
@@ -176,6 +188,12 @@ const PoliticalSurveyDashboard = () => {
 
   const [selectedFilter, setSelectedFilter] = useState('all');
 
+  // API에서 합산 값 사용
+  const totalResponses = data.totalResponses;
+  const voteIntentPercentage = data.voteIntentPercentage;
+  const topPartyLabel = data.topPartyLabel;
+  const topPartyPercentage = data.topPartyPercentage;
+
   return (
     <div className="min-h-screen bg-gray-50 p-4">
       <div className="max-w-7xl mx-auto">
@@ -190,8 +208,8 @@ const PoliticalSurveyDashboard = () => {
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
           <StatCard 
             title="총 응답수" 
-            value={data.totalResponses.toLocaleString()} 
-            subtitle="전체 설문 참여자" 
+            value={totalResponses?.toLocaleString()} 
+            subtitle="전체 설문 + 투표의향조사 참여자" 
             icon="📊"
           />
           <StatCard 
@@ -202,14 +220,14 @@ const PoliticalSurveyDashboard = () => {
           />
           <StatCard 
             title="투표 의향" 
-            value="85.0%" 
-            subtitle="투표할 것이라고 답한 비율" 
+            value={`${voteIntentPercentage}%`} 
+            subtitle="투표할 것이라고 답한 비율 (합산)" 
             icon="🗳️"
           />
           <StatCard 
             title="1위 정당" 
-            value="민주당 31.5%" 
-            subtitle="가장 높은 지지율" 
+            value={`${topPartyLabel} ${topPartyPercentage}%`} 
+            subtitle="가장 높은 지지율 (합산)" 
             icon="🏆"
           />
         </div>
@@ -270,13 +288,23 @@ const PoliticalSurveyDashboard = () => {
           <div className="bg-white rounded-lg shadow-md p-6">
             <h3 className="text-lg font-semibold text-gray-900 mb-4">주요 관심 이슈</h3>
             <ResponsiveContainer width="100%" height={300}>
-              <BarChart data={data.keyIssues ?? []} layout="horizontal">
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis type="number" />
-                <YAxis dataKey="label" type="category" width={80} fontSize={12} />
+              <PieChart>
+                <Pie
+                  data={data.keyIssues ?? []}
+                  dataKey="count"
+                  nameKey="label"
+                  cx="50%"
+                  cy="50%"
+                  outerRadius={100}
+                  label={({ payload, percent }) => `${payload.label} ${(percent * 100).toFixed(1)}%`}
+                >
+                  {(data.keyIssues ?? []).map((entry: any, index: number) => (
+                    <Cell key={`cell-key-issue-${index}`} fill={COLORS[index % COLORS.length]} />
+                  ))}
+                </Pie>
                 <Tooltip content={<CustomTooltip />} />
-                <Bar dataKey="count" fill="#10B981" />
-              </BarChart>
+                <Legend />
+              </PieChart>
             </ResponsiveContainer>
           </div>
 
@@ -323,19 +351,21 @@ const PoliticalSurveyDashboard = () => {
               <PieChart>
                 <Pie
                   data={data.genderDistribution ?? []}
+                  dataKey="count"
+                  nameKey="label"
                   cx="50%"
                   cy="50%"
                   innerRadius={40}
                   outerRadius={80}
-                  fill="#8884d8"
-                  dataKey="count"
-                  label={({ percentage }) => `${percentage}%`}
+                  label={({ name, percent }) => `${name} ${(percent * 100).toFixed(1)}%`}
                 >
-                  {((data.genderDistribution ?? [])).map((entry: any, index: number) => (
+                  {(data.genderDistribution ?? []).map((entry: any, index: number) => (
                     <Cell key={`cell-${index}`} fill={COLORS[index]} />
                   ))}
                 </Pie>
-                <Tooltip />
+                <Tooltip
+                  formatter={(value, name, props) => [`${value}명`, props.payload.label]}
+                />
               </PieChart>
             </ResponsiveContainer>
           </div>
@@ -344,76 +374,23 @@ const PoliticalSurveyDashboard = () => {
           <div className="bg-white rounded-lg shadow-md p-6">
             <h3 className="text-lg font-semibold text-gray-900 mb-4">🔍 주요 인사이트</h3>
             <div className="space-y-4">
-              <div className="p-3 bg-blue-50 rounded-lg">
-                <h4 className="font-medium text-blue-900 text-sm">높은 투표 참여 의지</h4>
-                <p className="text-xs text-blue-700 mt-1">85%가 투표할 의향을 보여 높은 관심도</p>
-              </div>
-              <div className="p-3 bg-green-50 rounded-lg">
-                <h4 className="font-medium text-green-900 text-sm">양강 구도</h4>
-                <p className="text-xs text-green-700 mt-1">민주당과 국민의힘이 1, 2위 경쟁</p>
-              </div>
-              <div className="p-3 bg-yellow-50 rounded-lg">
-                <h4 className="font-medium text-yellow-900 text-sm">경제가 최대 관심사</h4>
-                <p className="text-xs text-yellow-700 mt-1">31.3%가 경제를 가장 중요한 이슈로 선택</p>
-              </div>
-              <div className="p-3 bg-purple-50 rounded-lg">
-                <h4 className="font-medium text-purple-900 text-sm">수도권 집중</h4>
-                <p className="text-xs text-purple-700 mt-1">서울·경기 응답자가 전체의 53.9%</p>
-              </div>
+              {insight ? (
+                <div className="p-3 bg-blue-50 rounded-lg">
+                  <p className="text-sm text-blue-700 whitespace-pre-line">{insight}</p>
+                </div>
+              ) : (
+                <div className="p-3 bg-gray-50 rounded-lg">
+                  <p className="text-sm text-gray-500">인사이트를 불러오는 중...</p>
+                </div>
+              )}
             </div>
-          </div>
-        </div>
-
-        {/* 요약 통계 테이블 */}
-        <div className="bg-white rounded-lg shadow-md p-6 mb-8">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">📋 정당별 상세 현황</h3>
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b">
-                  <th className="text-left p-2">정당/후보</th>
-                  <th className="text-right p-2">응답수</th>
-                  <th className="text-right p-2">지지율</th>
-                  <th className="text-center p-2">순위</th>
-                </tr>
-              </thead>
-              <tbody>
-                {((data.supportedParty ?? [])
-                  .sort((a: any, b: any) => b.count - a.count)
-                  .map((party: any, index: number) => (
-                    <tr key={party.value} className="border-b hover:bg-gray-50">
-                      <td className="p-2">
-                        <div className="flex items-center">
-                          <div 
-                            className="w-3 h-3 rounded mr-2" 
-                            style={{ backgroundColor: party.color }}
-                          ></div>
-                          {party.label}
-                        </div>
-                      </td>
-                      <td className="text-right p-2">{party.count.toLocaleString()}명</td>
-                      <td className="text-right p-2 font-medium">{party.percentage}%</td>
-                      <td className="text-center p-2">
-                        <span className={`px-2 py-1 rounded text-xs ${
-                          index === 0 ? 'bg-yellow-100 text-yellow-800' :
-                          index === 1 ? 'bg-gray-100 text-gray-800' :
-                          index === 2 ? 'bg-orange-100 text-orange-800' :
-                          'bg-blue-50 text-blue-800'
-                        }`}>
-                          {index + 1}위
-                        </span>
-                      </td>
-                    </tr>
-                  )))}
-              </tbody>
-            </table>
           </div>
         </div>
 
         {/* 푸터 */}
         <div className="text-center text-gray-500 text-sm">
           <p>본 조사는 익명으로 진행되었으며, 통계적 목적으로만 사용됩니다.</p>
-          <p className="mt-1">데이터 수집 기간: 2025년 5월 1일 ~ 5월 20일</p>
+          <p className="mt-1">데이터 수집 기간: 2025년 5월 1일 ~ </p>
           
           {/* 내부 링크 */}
           <div className="mt-4 flex justify-center space-x-4">

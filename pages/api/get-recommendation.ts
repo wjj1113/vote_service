@@ -102,10 +102,24 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     // 4. 추천 결과 저장
     try {
+      // 후보자 ID 찾기 (공백, 대소문자, 특수문자 제거)
+      const cleanedName = parsed.name.replace(/[^\w가-힣]/g, '').toLowerCase();
+      const allCandidates = await prisma.candidate.findMany();
+      const candidate = allCandidates.find((c: any) => c.name.replace(/[^\w가-힣]/g, '').toLowerCase() === cleanedName);
+
+      if (!candidate) {
+        console.error('추천 후보자를 찾을 수 없습니다:', parsed.name);
+        return res.status(400).json({
+          success: false,
+          error: '추천 후보자를 찾을 수 없습니다.',
+          message: `DB에 존재하지 않는 후보자: ${parsed.name}`
+        });
+      }
+
       const savedRecommendation = await prisma.recommendation.create({
         data: {
           orientationId: Number(orientationId),
-          candidateId: parsed.name,
+          candidateId: candidate.id,
           matchScore: parsed.matchScore,
           matchingPoints: parsed.matchingPoints,
           differences: parsed.differences,

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { message } from 'antd';
 
 const PoliticalSurveyModal = () => {
@@ -15,36 +15,8 @@ const PoliticalSurveyModal = () => {
   const [loading, setLoading] = useState(false);
   const [complete, setComplete] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [canSubmit, setCanSubmit] = useState(true);
-  const [submittedAt, setSubmittedAt] = useState<Date | null>(null);
-
-  // IP 제한 체크
-  const checkSurveyLimit = async () => {
-    try {
-      const response = await fetch('/api/check-survey-limit', {
-        method: 'POST',
-      });
-      const data = await response.json();
-      
-      if (!data.canSubmit) {
-        setCanSubmit(false);
-        setSubmittedAt(new Date(data.submittedAt));
-        message.warning('이미 설문에 참여하셨습니다.');
-      }
-    } catch (error) {
-      console.error('Error checking survey limit:', error);
-    }
-  };
-
-  useEffect(() => {
-    checkSurveyLimit();
-  }, []);
 
   const openModal = () => {
-    if (!canSubmit) {
-      message.warning('이미 설문에 참여하셨습니다.');
-      return;
-    }
     setIsOpen(true);
     setStep(1);
     setComplete(false);
@@ -76,13 +48,10 @@ const PoliticalSurveyModal = () => {
   };
 
   const submitSurvey = async () => {
-    if (isSubmitting || !canSubmit) return;
-    
+    if (isSubmitting) return;
     setIsSubmitting(true);
     setLoading(true);
-    
     try {
-      // 설문 데이터 저장
       const response = await fetch('/api/submit-survey', {
         method: 'POST',
         headers: {
@@ -90,13 +59,10 @@ const PoliticalSurveyModal = () => {
         },
         body: JSON.stringify(formData),
       });
-
       if (!response.ok) {
         throw new Error('설문 제출에 실패했습니다.');
       }
-
       setComplete(true);
-      setCanSubmit(false);
       message.success('설문이 성공적으로 제출되었습니다.');
     } catch (error) {
       console.error('설문 제출 중 오류 발생:', error);
@@ -109,14 +75,11 @@ const PoliticalSurveyModal = () => {
 
   const goToHome = () => {
     closeModal();
-    // 실제 홈 이동 로직 필요
   };
 
   const goToCandidateRecommendation = () => {
     closeModal();
-    // 'AI 추천' 탭으로 이동
     if (typeof window !== 'undefined') {
-      // location.hash 방식 (index.tsx에서 hash에 따라 탭 변경)
       window.location.hash = '#ai';
     }
   };
@@ -128,14 +91,9 @@ const PoliticalSurveyModal = () => {
       {/* 하단 고정 강조 버튼 */}
       <button 
         onClick={openModal}
-        className={`fixed bottom-8 left-1/2 transform -translate-x-1/2 z-50 px-8 py-4 text-xl font-bold rounded-full shadow-lg transition-colors ${
-          canSubmit 
-            ? 'bg-black text-white hover:bg-gray-800' 
-            : 'bg-gray-400 text-white cursor-not-allowed'
-        }`}
-        disabled={!canSubmit}
+        className="fixed bottom-8 left-1/2 transform -translate-x-1/2 z-50 px-8 py-4 text-xl font-bold rounded-full shadow-lg transition-colors bg-black text-white hover:bg-gray-800"
       >
-        {canSubmit ? '투표 의향이 있으신가요?' : '이미 설문에 참여하셨습니다'}
+        투표 의향이 있으신가요?
       </button>
 
       {/* 모달 오버레이 */}

@@ -1,9 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useContext } from 'react';
 import { useRouter } from 'next/router';
 import { Button, Card, Container, Row, Col, Form, Alert, Spinner, Toast } from 'react-bootstrap';
 import { FaRobot, FaChartLine, FaLock, FaCheck, FaTimes } from 'react-icons/fa';
 import { GA_EVENT_DETAILED } from '../lib/gtag';
 import styles from './GPTRecommendation.module.css';
+import { LoadingContext } from '../contexts/LoadingContext';
 
 interface RecommendationResult {
   name: string;
@@ -181,6 +182,10 @@ interface GPTRecommendationProps {
 
 const GPTRecommendation: React.FC<GPTRecommendationProps> = ({ onRecommendationComplete }) => {
   const router = useRouter();
+  const loadingContext = useContext(LoadingContext) as any;
+  const setAnalyzing = loadingContext?.setAnalyzing || (() => {});
+  const setAnalysisProgress = loadingContext?.setAnalysisProgress || (() => {});
+  const setAnalysisKeywords = loadingContext?.setAnalysisKeywords || (() => {});
   const [activeTab, setActiveTab] = useState<'premium' | 'quick' | 'private'>('premium');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -193,7 +198,6 @@ const GPTRecommendation: React.FC<GPTRecommendationProps> = ({ onRecommendationC
   const [toastMessage, setToastMessage] = useState('');
   const [toastType, setToastType] = useState<'success' | 'error' | 'info'>('info');
   const [userAgreement, setUserAgreement] = useState<null | boolean>(null);
-  const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [isChatGPTClicked, setIsChatGPTClicked] = useState(false);
 
   const showNotification = (message: string, type: 'success' | 'error' | 'info' = 'info') => {
@@ -245,14 +249,20 @@ const GPTRecommendation: React.FC<GPTRecommendationProps> = ({ onRecommendationC
 
     setIsLoading(true);
     setError(null);
-    GA_EVENT_DETAILED('quick_survey_submit');
+    setAnalyzing(true);
+    setAnalysisProgress(10);
+    setAnalysisKeywords(['설문 응답 수집']);
 
     try {
+      // 1단계: 설문 응답 수집
+      await new Promise(resolve => setTimeout(resolve, 300)); // UX용 딜레이
+      setAnalysisProgress(30);
+      setAnalysisKeywords(['설문 응답 수집', 'AI 분석 준비']);
+
+      // 2단계: AI 분석 요청
       const response = await fetch('/api/analyze-orientation', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           surveyAnswers: surveyAnswers,
           isQuickSurvey: true
@@ -263,21 +273,31 @@ const GPTRecommendation: React.FC<GPTRecommendationProps> = ({ onRecommendationC
         throw new Error('분석 중 오류가 발생했습니다.');
       }
 
+      setAnalysisProgress(60);
+      setAnalysisKeywords(['AI 분석 중', 'DB 저장 준비']);
+
+      // 3단계: 결과 파싱 및 DB 저장
       const data = await response.json();
       
       if (!data.success) {
         throw new Error(data.message || '설문 분석에 실패했습니다.');
       }
 
+      setAnalysisProgress(90);
+      setAnalysisKeywords(['DB 저장 중', '결과 준비']);
+
+      // 4단계: 결과 처리 및 2단계로 이동
+      setAnalysisProgress(100);
+      setAnalysisKeywords(['분석 완료']);
+
       GA_EVENT_DETAILED('quick_survey_success', {
         orientationId: data.orientationId,
         answersCount: Object.keys(surveyAnswers).length
       });
 
-      router.replace({
-        pathname: `/results/${data.orientationId}`,
-        query: { result: JSON.stringify(data.result) }
-      });
+      // 결과를 상태에 저장하고 2단계로 이동
+      setGptResult(JSON.stringify(data.result, null, 2));
+      setCurrentStep(2);
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : '설문 분석 중 오류가 발생했습니다.';
       setError(errorMessage);
@@ -285,6 +305,9 @@ const GPTRecommendation: React.FC<GPTRecommendationProps> = ({ onRecommendationC
       GA_EVENT_DETAILED('quick_survey_error', { error: errorMessage });
     } finally {
       setIsLoading(false);
+      setAnalyzing(false);
+      setAnalysisProgress(0);
+      setAnalysisKeywords([]);
     }
   };
 
@@ -357,10 +380,8 @@ const GPTRecommendation: React.FC<GPTRecommendationProps> = ({ onRecommendationC
         resultType: activeTab
       });
 
-      router.replace({
-        pathname: `/results/${analysisData.orientationId}`,
-        query: { result: JSON.stringify(analysisData.result) }
-      });
+      // 결과 페이지로 리다이렉트
+      router.push(`/results/${analysisData.orientationId}`);
       showNotification('분석이 완료되었습니다.', 'success');
       GA_EVENT_DETAILED('gpt_recommendation_complete');
     } catch (err) {

@@ -1,36 +1,69 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import Image from 'next/image';
 
 // Kakao 타입 선언
 declare global {
   interface Window {
-    Kakao?: any;
+    Kakao: any;
   }
 }
 import { GA_EVENT_DETAILED } from '../lib/gtag';
 
 interface CandidateResultProps {
-  resultData: {
-    recommendedCandidate: {
+  result: {
+    recommendation: {
       name: string;
       party: string;
-      image: string;
+      imageUrl: string;
       matchScore: number;
-      slogan: string;
+      recommendation: string;
+      matchingPoints: string[];
+      differences: string[];
+      detailedAnalysis: {
+        policyMatch: { score: number; reason: string };
+        valueMatch: { score: number; reason: string };
+        demographicMatch: { score: number; reason: string };
+        leadershipMatch: { score: number; reason: string };
+      };
+      policies?: {
+        title: string;
+        summary: string;
+        goal: string;
+        implementation: string;
+        duration: string;
+        budget: string;
+      }[];
     };
-    recommendationReason: string;
-    keyPolicies: { title: string; description: string }[];
-    userType: string;
-    politicalValues: {
-      leaning: string;
-      coreValues: string[];
-      policyInterests: string[];
-      votingCriterion: string;
+    politicalOrientation: {
+      tendency: string;
+      valueBase: string;
+      interests: string[];
+      voteBase: string;
     };
+    candidateImageUrls?: { [key: string]: string };
   };
 }
 
-const CandidateResult: React.FC<CandidateResultProps> = ({ resultData }) => {
+const CandidateResult: React.FC<CandidateResultProps> = ({ result }) => {
   const [userAgreement, setUserAgreement] = useState<null | boolean>(null);
+  const [isExpanded, setIsExpanded] = useState(false);
+
+  useEffect(() => {
+    console.log('CandidateResult 렌더링됨');
+    console.log('result:', result);
+    if (result) {
+      console.log('recommendation:', result.recommendation);
+      if (result.recommendation) {
+        console.log('정책 데이터(useEffect):', result.recommendation.policies);
+      }
+    }
+  }, [result]);
+
+  console.log('=== 결과 페이지 데이터 ===');
+  console.log('전체 결과 데이터:', JSON.stringify(result, null, 2));
+  console.log('추천 후보자 정보:', JSON.stringify(result.recommendation, null, 2));
+  console.log('정치 성향 정보:', JSON.stringify(result.politicalOrientation, null, 2));
+  console.log('후보자 이미지 URL:', JSON.stringify(result.candidateImageUrls, null, 2));
 
   const handleAgreement = (agrees: boolean) => {
     setUserAgreement(agrees);
@@ -38,7 +71,7 @@ const CandidateResult: React.FC<CandidateResultProps> = ({ resultData }) => {
   };
 
   const handleShare = async (platform: 'twitter' | 'threads' | 'kakaotalk' | 'copy') => {
-    const shareText = `추천 후보자: ${resultData.recommendedCandidate.name}\n추천 사유: ${resultData.recommendationReason}`;
+    const shareText = `추천 후보자: ${result.recommendation.name}\n추천 사유: ${result.recommendation.recommendation}`;
     const shareUrl = window.location.href;
     if (platform === 'twitter') {
       window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent(shareText + '\n' + shareUrl)}`);
@@ -60,6 +93,8 @@ const CandidateResult: React.FC<CandidateResultProps> = ({ resultData }) => {
     }
   };
 
+  if (!result.recommendation) return null;
+
   return (
     <div className="min-h-screen bg-gradient-to-b from-gray-900 to-gray-900 py-10 px-4 sm:px-6 lg:px-8">
       <div className="max-w-4xl mx-auto">
@@ -71,76 +106,115 @@ const CandidateResult: React.FC<CandidateResultProps> = ({ resultData }) => {
           </div>
           {/* 후보자 프로필 */}
           <div className="p-8">
-            <div className="flex flex-col md:flex-row items-center mb-8">
-              <div className="relative mb-6 md:mb-0 md:mr-8">
-                <div className="w-32 h-32 rounded-full overflow-hidden border-4 border-white shadow-lg">
-                  <img src={resultData.recommendedCandidate.image} alt={resultData.recommendedCandidate.name} className="w-full h-full object-cover" />
+            <div className="flex flex-col items-center mb-8">
+              {/* 후보자명 상단 표시 */}
+              <h2 className="text-4xl font-bold text-gray-800 text-center mb-4">{result.recommendation.name}</h2>
+              
+              <div className="relative">
+                {/* 원형 이미지 */}
+                <div className="w-40 h-40 rounded-full overflow-hidden border-4 border-white shadow-lg">
+                  <Image
+                    src={result.recommendation.imageUrl}
+                    alt={result.recommendation.name}
+                    fill
+                    className="object-cover"
+                    onError={(e) => {
+                      const target = e.target as HTMLImageElement;
+                      target.src = '/images/default-candidate.png';
+                    }}
+                  />
                 </div>
+                {/* 매칭 점수 우측 상단 표시 */}
                 <div className="absolute -right-2 -top-2 w-12 h-12 rounded-full bg-white shadow flex items-center justify-center">
                   <div className="w-10 h-10 rounded-full bg-black text-white flex items-center justify-center font-bold">
-                    {resultData.recommendedCandidate.matchScore}%
+                    {result.recommendation.matchScore}%
                   </div>
                 </div>
               </div>
-              <div className="text-center md:text-left">
-                <h2 className="text-3xl font-bold text-gray-800 mb-1">{resultData.recommendedCandidate.name}</h2>
-                <p className="text-lg text-black mb-2">{resultData.recommendedCandidate.party}</p>
-                <p className="text-gray-600 italic">"{resultData.recommendedCandidate.slogan}"</p>
+              
+              <div className="text-center mt-4">
+                <p className="text-xl text-black mb-2">{result.recommendation.party}</p>
               </div>
             </div>
             {/* 추천 이유 */}
             <div className="bg-gray-900 p-6 rounded-lg mb-8">
-              <h3 className="flex items-center text-xl font-semibold text-gray-800 mb-3">
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-black mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <h3 className="flex items-center text-xl font-semibold text-white mb-3">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-white mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
                 </svg>
                 추천 이유
               </h3>
-              <p className="text-gray-700 leading-relaxed">
-                {resultData.recommendationReason}
+              <p className="text-white leading-relaxed">
+                {result.recommendation.recommendation}
               </p>
             </div>
             {/* 사용자 정치 성향 요약 */}
             <div className="bg-gray-900 p-6 rounded-lg mb-8">
-              <h3 className="text-xl font-semibold text-gray-800 mb-3">
+              <h3 className="text-xl font-semibold text-white mb-3">
                 당신의 정치 성향 요약
               </h3>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                <div className="bg-white p-3 rounded shadow-sm">
-                  <p className="text-sm text-gray-500">정치 성향</p>
-                  <p className="font-medium">{resultData.politicalValues.leaning}</p>
-                </div>
-                <div className="bg-white p-3 rounded shadow-sm">
-                  <p className="text-sm text-gray-500">중시하는 가치</p>
-                  <p className="font-medium">{resultData.politicalValues.coreValues.join(', ')}</p>
-                </div>
-                <div className="bg-white p-3 rounded shadow-sm">
-                  <p className="text-sm text-gray-500">관심 정책</p>
-                  <p className="font-medium">{resultData.politicalValues.policyInterests.join(', ')}</p>
-                </div>
-                <div className="bg-white p-3 rounded shadow-sm">
-                  <p className="text-sm text-gray-500">투표 기준</p>
-                  <p className="font-medium">{resultData.politicalValues.votingCriterion}</p>
+              <div className="bg-white p-4 rounded-lg">
+                <div className="space-y-4">
+                  <div>
+                    <h4 className="text-lg font-semibold text-gray-800 mb-2">정치 성향</h4>
+                    <p className="text-gray-700">{result.politicalOrientation.tendency}</p>
+                  </div>
+                  <div>
+                    <h4 className="text-lg font-semibold text-gray-800 mb-2">중시하는 가치</h4>
+                    <p className="text-gray-700">{result.politicalOrientation.valueBase}</p>
+                  </div>
+                  <div>
+                    <h4 className="text-lg font-semibold text-gray-800 mb-2">관심 정책</h4>
+                    <p className="text-gray-700">{result.politicalOrientation.interests.join(', ')}</p>
+                  </div>
+                  <div>
+                    <h4 className="text-lg font-semibold text-gray-800 mb-2">투표 기준</h4>
+                    <p className="text-gray-700">{result.politicalOrientation.voteBase}</p>
+                  </div>
                 </div>
               </div>
             </div>
-            {/* 핵심 공약 */}
-            <div className="mb-8">
-              <h3 className="text-xl font-semibold text-gray-800 mb-4">
-                핵심 공약
-              </h3>
-              <div className="space-y-4">
-                {resultData.keyPolicies.map((policy, index) => (
-                  <div key={index} className="border border-gray-200 rounded-lg p-4 hover:border-black hover:shadow-sm transition-all duration-200">
-                    <div className="flex items-start">
-                      <div className="w-8 h-8 bg-gray-800 rounded-full flex items-center justify-center text-gray-900 font-bold mr-3 mt-1">
-                        {index + 1}
-                      </div>
-                      <div>
-                        <h4 className="font-semibold text-gray-800 mb-1">{policy.title}</h4>
-                        <p className="text-gray-600">{policy.description}</p>
+            {/* 주요 정책 */}
+            <div className="mt-8">
+              <h3 className="text-2xl font-bold text-gray-900 mb-6">주요 정책</h3>
+              <div className="space-y-6">
+                {result.recommendation.policies && result.recommendation.policies.map((policy, index) => (
+                  <div key={index} className="bg-white rounded-xl shadow-lg overflow-hidden">
+                    <div className="p-6">
+                      <h4 className="text-xl font-bold text-gray-900 mb-3">{policy.title}</h4>
+                      <p className="text-gray-600 mb-4">{policy.summary}</p>
+                      <div className="space-y-4">
+                        <div className="bg-gray-50 p-4 rounded-lg">
+                          <h5 className="font-semibold text-gray-900 mb-2">목표</h5>
+                          <p className="text-gray-700">{policy.goal}</p>
+                        </div>
+                        <div className="bg-gray-50 p-4 rounded-lg">
+                          <h5 className="font-semibold text-gray-900 mb-2">추진 방안</h5>
+                          <p className="text-gray-700 whitespace-pre-line">{policy.implementation}</p>
+                        </div>
+                        <div className="grid grid-cols-2 gap-4">
+                          <div className="bg-gray-50 p-4 rounded-lg">
+                            <h5 className="font-semibold text-gray-900 mb-2">기간</h5>
+                            <p className="text-gray-700">{policy.duration}</p>
+                          </div>
+                          <div className="bg-gray-50 p-4 rounded-lg">
+                            <h5 className="font-semibold text-gray-900 mb-2">예산</h5>
+                            <p className="text-gray-700">{policy.budget}</p>
+                          </div>
+                        </div>
                       </div>
                     </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+            {/* 일치하는 정책 영역 */}
+            <div className="mt-8">
+              <h3 className="text-2xl font-bold text-gray-900 mb-6">일치하는 정책 영역</h3>
+              <div className="grid grid-cols-2 gap-4">
+                {result.recommendation.matchingPoints && result.recommendation.matchingPoints.map((point, index) => (
+                  <div key={index} className="bg-white rounded-xl shadow-lg p-6">
+                    <h4 className="text-xl font-bold text-gray-900 mb-2">{point}</h4>
                   </div>
                 ))}
               </div>
@@ -148,7 +222,7 @@ const CandidateResult: React.FC<CandidateResultProps> = ({ resultData }) => {
             {/* 동의 여부 */}
             {userAgreement === null && (
               <div className="bg-gray-900 p-6 rounded-lg text-center mb-8">
-                <h3 className="text-xl font-semibold text-gray-800 mb-3">
+                <h3 className="text-xl font-semibold text-white mb-3">
                   이 후보자가 내 성향과 일치한다고 생각하시나요?
                 </h3>
                 <div className="flex flex-col gap-4 items-center w-full max-w-xs mx-auto">
