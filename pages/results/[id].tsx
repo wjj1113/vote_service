@@ -520,13 +520,13 @@ export default function ResultsPage() {
         <meta name="description" content={result?.recommendations?.[0]?.recommendation || 'AI가 분석한 정치 성향, 후보별 정책 비교, 공약 이행까지 한눈에! 2025 대선 정책 서비스'} />
         <meta property="og:title" content={result?.recommendations?.[0]?.name ? `${result.recommendations[0].name} 후보 추천 결과 - 2025 대선 정책 비교` : '2025 대선 정책 비교, AI 후보 추천'} />
         <meta property="og:description" content={result?.recommendations?.[0]?.recommendation || 'AI가 분석한 정치 성향, 후보별 정책 비교, 공약 이행까지 한눈에! 2025 대선 정책 서비스'} />
-        <meta property="og:image" content={result?.recommendations?.[0]?.imageUrl || '/og-main.png'} />
+        <meta property="og:image" content="/images/og-thumbnail.png" />
         <meta property="og:type" content="article" />
         <meta name="twitter:card" content="summary_large_image" />
         <meta name="twitter:title" content={result?.recommendations?.[0]?.name ? `${result.recommendations[0].name} 후보 추천 결과 - 2025 대선 정책 비교` : '2025 대선 정책 비교, AI 후보 추천'} />
         <meta name="twitter:description" content={result?.recommendations?.[0]?.recommendation || 'AI가 분석한 정치 성향, 후보별 정책 비교, 공약 이행까지 한눈에! 2025 대선 정책 서비스'} />
-        <meta name="twitter:image" content={result?.recommendations?.[0]?.imageUrl || '/og-main.png'} />
-        <link rel="icon" href="/favicon.ico" />
+        <meta name="twitter:image" content="/images/og-thumbnail.png" />
+        <link rel="icon" href="/images/favicon.ico" />
       </Head>
       <Popup forceOpen={true} />
       <Script

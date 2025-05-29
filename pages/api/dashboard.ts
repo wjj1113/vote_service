@@ -89,6 +89,16 @@ type DashboardData = {
   regionDistribution: { label: string; value: string; count: number; percentage: string | number }[];
   ageDistribution: { label: string; value: string; count: number; percentage: string | number }[];
   genderDistribution: { label: string; value: string; count: number; percentage: string | number }[];
+  voteIntentStats: { label: string; count: number }[];
+  partyStats: { label: string; count: number }[];
+  regionStats: { label: string; count: number }[];
+  ageStats: { label: string; count: number }[];
+  genderStats: { label: string; count: number }[];
+  totalSurveyResponses: number;
+  totalVoteIntentResponses: number;
+  voteIntentPercentage: string;
+  topPartyLabel: string;
+  topPartyPercentage: string | number;
 };
 
 function aggregateSurveyData(
@@ -228,6 +238,31 @@ function aggregateSurveyData(
     regionDistribution,
     ageDistribution,
     genderDistribution,
+    voteIntentStats: voteIntentCounts.map(item => ({
+      label: item.label,
+      count: item.count
+    })),
+    partyStats: supportedParty.map(item => ({
+      label: item.label,
+      count: item.count
+    })),
+    regionStats: regionDistribution.map(item => ({
+      label: item.label,
+      count: item.count
+    })),
+    ageStats: ageDistribution.map(item => ({
+      label: item.label,
+      count: item.count
+    })),
+    genderStats: genderDistribution.map(item => ({
+      label: item.label,
+      count: item.count
+    })),
+    totalSurveyResponses: totalResponses,
+    totalVoteIntentResponses: voteIntents.length,
+    voteIntentPercentage: (voteIntentCounts[0].count / totalResponses * 100).toFixed(1),
+    topPartyLabel: supportedParty.reduce((a, b) => a.count > b.count ? a : b).label,
+    topPartyPercentage: supportedParty.reduce((a, b) => a.count > b.count ? a : b).percentage
   };
 }
 

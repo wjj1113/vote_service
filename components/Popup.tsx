@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { saveEmail } from '../utils/email';
 
-const GROUP_CHAT_URL = 'https://open.kakao.com/o/your-group-link'; // 실제 단톡방 링크로 교체
+const GROUP_CHAT_URL = 'https://open.kakao.com/o/gypv4Oyh';
 
 const POPUP_SHOWN_KEY = 'popup_shown';
 
