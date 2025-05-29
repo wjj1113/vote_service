@@ -2,10 +2,12 @@ import React, { useContext } from 'react';
 import Head from 'next/head';
 import { useRouter } from 'next/router';
 import { FeedbackModalContext } from '../components/Layout';
+import ConsultationModal from '../components/ConsultationModal';
 
 export default function Info() {
   const router = useRouter();
   const openFeedbackModal = useContext(FeedbackModalContext);
+  const [consultModalOpen, setConsultModalOpen] = React.useState(false);
   return (
     <div className="min-h-screen bg-gray-50">
       <Head>
@@ -186,7 +188,74 @@ export default function Info() {
             피드백 보내기
           </button>
         </div>
+
+        {/* MVP 개발 서비스 CTA 섹션 */}
+        <section className="relative bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 text-white rounded-2xl mt-20 px-6 py-16 overflow-hidden text-center shadow-xl">
+          {/* 도트 패턴 배경 */}
+          <div className="absolute inset-0 opacity-40 pointer-events-none" style={{backgroundImage: `url('data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' viewBox=\'0 0 100 100\'><defs><pattern id=\'dots\' width=\'20\' height=\'20\' patternUnits=\'userSpaceOnUse\'><circle cx=\'10\' cy=\'10\' r=\'1\' fill=\'rgba(255,255,255,0.1)\'/></pattern></defs><rect width=\'100\' height=\'100\' fill=\'url(%23dots)\'/></svg>')`}} />
+          <div className="relative z-10 max-w-3xl mx-auto">
+            <div className="inline-block bg-white bg-opacity-10 backdrop-blur px-6 py-3 rounded-full font-semibold border border-white border-opacity-30 mb-8">💡 검증된 빠른 MVP 개발</div>
+            <h2 className="text-3xl md:text-4xl font-extrabold mb-4 bg-gradient-to-r from-white to-gray-300 bg-clip-text text-transparent">이런 서비스를 빠르게 만들고 싶으신가요?</h2>
+            <p className="text-lg md:text-xl opacity-90 mb-10 font-medium">
+              <strong>바로 이 서비스가 실제 사례입니다!</strong><br />
+              대선 토론 보다가 아이디어 떠올려서 <span className="font-bold text-yellow-300">3일 만에 완성</span>한 프로젝트
+            </p>
+            {/* 개발 스토리 */}
+            <div className="flex flex-col md:flex-row items-center justify-center gap-4 md:gap-8 mb-12">
+              <div className="flex flex-col items-center bg-white bg-opacity-10 rounded-2xl px-6 py-4 min-w-[120px]">
+                <span className="text-3xl mb-2">📺</span>
+                <h4 className="font-bold text-lg mb-1">대선 토론 시청</h4>
+                <p className="text-gray-200 text-sm">아이디어 발견</p>
+              </div>
+              <span className="text-3xl text-gray-400">→</span>
+              <div className="flex flex-col items-center bg-white bg-opacity-10 rounded-2xl px-6 py-4 min-w-[120px]">
+                <span className="text-2xl mb-2 font-bold">1명</span>
+                <h4 className="font-bold text-lg mb-1">원스톱 개발</h4>
+                <p className="text-gray-200 text-sm">기획-개발-런칭</p>
+              </div>
+              <span className="text-3xl text-gray-400">→</span>
+              <div className="flex flex-col items-center bg-white bg-opacity-10 rounded-2xl px-6 py-4 min-w-[120px]">
+                <span className="text-2xl mb-2 font-bold">3일</span>
+                <h4 className="font-bold text-lg mb-1">초고속 완성</h4>
+                <p className="text-gray-200 text-sm">실제 서비스 오픈</p>
+              </div>
+            </div>
+            {/* 서비스 특징 */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
+              <div className="mvp-feature bg-white bg-opacity-10 backdrop-blur p-8 rounded-2xl border border-white border-opacity-20 hover:scale-105 transition-transform">
+                <span className="feature-icon text-3xl mb-3 block">⚡</span>
+                <h4 className="text-lg font-semibold mb-2 text-white">초고속 개발</h4>
+                <p className="text-gray-200 text-sm">1주일 내 MVP 완성<br /><span className="text-yellow-300 text-xs italic">실제 정치 서비스 3일 개발</span></p>
+              </div>
+              <div className="mvp-feature bg-white bg-opacity-10 backdrop-blur p-8 rounded-2xl border border-white border-opacity-20 hover:scale-105 transition-transform">
+                <span className="feature-icon text-3xl mb-3 block">🎯</span>
+                <h4 className="text-lg font-semibold mb-2 text-white">원스톱 서비스</h4>
+                <p className="text-gray-200 text-sm">기획-개발-마케팅-런칭<br /><span className="text-yellow-300 text-xs italic">한 명이 모든 과정 담당</span></p>
+              </div>
+              <div className="mvp-feature bg-white bg-opacity-10 backdrop-blur p-8 rounded-2xl border border-white border-opacity-20 hover:scale-105 transition-transform">
+                <span className="feature-icon text-3xl mb-3 block">💻</span>
+                <h4 className="text-lg font-semibold mb-2 text-white">완전한 서비스</h4>
+                <p className="text-gray-200 text-sm">즉시 사용 가능한 수준<br /><span className="text-yellow-300 text-xs italic">바로 수익 창출 가능</span></p>
+              </div>
+            </div>
+            {/* CTA 버튼 */}
+            <div className="flex flex-col md:flex-row items-center justify-center gap-4 mb-8">
+              <a href="#" className="cta-primary bg-yellow-400 hover:bg-yellow-300 text-black font-bold px-8 py-3 rounded-full shadow transition-colors text-lg" onClick={e => {e.preventDefault(); window.location.href = '/mvp';}}>🚀 자세한 사례 보기</a>
+              <a href="#" className="cta-secondary bg-black bg-opacity-20 hover:bg-opacity-40 text-white font-semibold px-8 py-3 rounded-full border border-white border-opacity-30 transition-colors text-lg" onClick={e => {e.preventDefault(); setConsultModalOpen(true);}}>💬 무료 상담 신청</a>
+            </div>
+            {/* 연락처 */}
+            <div className="mt-6 text-center">
+              <p className="text-gray-300 mb-2">궁금한 점이 있으시면 언제든 연락하세요</p>
+              <div className="flex items-center justify-center gap-2 mb-1">
+                <span className="text-xl">📧</span>
+                <a href="mailto:mvp@yourcompany.com" className="underline text-white font-medium">aipoliticslab@gmail.com</a>
+              </div>
+              <p className="text-gray-400 text-xs">24시간 내 답변 보장 | 첫 상담 무료</p>
+            </div>
+          </div>
+        </section>
       </main>
+      <ConsultationModal open={consultModalOpen} onClose={() => setConsultModalOpen(false)} />
     </div>
   );
 } 

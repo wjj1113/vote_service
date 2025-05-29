@@ -175,3 +175,15 @@ model MatchFeedback {
   matched       Boolean
   createdAt     DateTime @default(now())
 }
+
+model ConsultationRequest {
+  id            Int      @id @default(autoincrement())
+  name          String
+  contact       String
+  consultType   String
+  consultMemo   String?
+  stage         String?
+  concern       String?
+  timePref      String?
+  createdAt     DateTime @default(now())
+}
