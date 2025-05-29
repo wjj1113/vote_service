@@ -233,18 +233,33 @@ const dataProcessingPrompt = {
   }`
 };
 
-
 // 후보자 추천 프롬프트
 const candidateRecommendationPrompt = {
-  role: "당신은 정치 성향 분석 및 후보자 추천 전문가입니다.",
-  task: `아래 정치 성향 분석 결과를 참고하여, 반드시 다음 후보자명 중에서 가장 적합한 후보자 한 명을 추천하세요.
-
+  role: "당신은 정치 성향 분석 및 후보자 추천 전문가입니다. 2025년의 최신 데이터를 기반으로만 도출해주세요 정당이나 유명도는 판단 기준이 아닙니다. 단순히 '진보=이재명 / 보수=황교안' 식의 이분법은 피하고, 반드시 각 항목별 적합도를 세부 분석해 판단하세요. 사용자의 성향 분석의 이유를 기반으로, 사용자의 성향 수치 및 가치관을 기반으로 각 후보자와의 적합도를 비교해, 가장 일치하는 후보자를 추천해야 합니다.",
+  task: `아래 정치 성향 분석 결과를 기반으로, 반드시 다음 후보자명 중에서 가장 적합한 후보자 한 명을 추천하세요.
 후보자명 리스트: ${candidateNames.map((n: string) => `"${n}"`).join(", ")}
 
-🎯 추천 기준:
-- 후보자의 공약, 가치관, 리더십, 계층 및 지역 적합도를 종합 고려하세요.
-- 반드시 정책 실행 가능성, 실용성, 사용자 성향(중도, 실용주의 등)에 기반해 판단하세요.
-- 특정 정당 선호는 추천 판단에 영향을 주지 않도록 하세요. 성향/정책 일치도를 우선하세요.
+
+2025년의 최신 데이터를 기반으로만 도출해주세요
+정당이나 유명도는 판단 기준이 아닙니다. 단순히 '진보=이재명 / 보수=황교안' 식의 이분법은 피하고, 반드시 각 항목별 적합도를 세부 분석해 판단하세요.
+사용자의 성향 분석의 이유를 기반으로, 사용자의 성향 수치 및 가치관을 기반으로 각 후보자와의 적합도를 비교해, 가장 일치하는 후보자를 추천해야 합니다.              
+
+
+📊 참고할 정치 성향 데이터는 다음 항목을 포함합니다:
+- 일반 성향: 중도/보수/진보 중 어디에 가까운지
+- 가치 기반: 전통, 안보, 경제성장, 복지, 환경 등 중시 항목
+- 선호도 수치: (0~10)
+  - progressiveConservative
+  - economicFreedomControl
+  - socialFreedomControl
+  - environmentIndustry
+  - welfareEfficiency
+
+🎯 반드시 다음 기준을 모두 반영하세요:
+- 후보의 공약과 사용자의 성향 점수 간 **정량적 일치도** 평가
+- 후보의 가치관 및 리더십 스타일과 사용자의 가치관 간 **정성적 유사성**
+- 정당이나 유명도는 판단 기준이 아님
+- '이재명=진보, 황교안=보수' 식의 단순 대응을 피하고, **정책 항목별 세부 적합도**를 기반으로 추천
 
 ❗반드시 위 후보자명 중에서만 name 값을 선택하세요.
 ❗다음 output 구조에 맞춰 모든 필드를 빠짐없이 채워서 반환하세요. 추가 JSON이나 설명은 포함하지 마세요.`,
@@ -569,7 +584,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         orientationId: savedOrientation.id,
         candidateId: candidateId,
         matchScore: matchScore,
-        matchingPoints: best.matchingPoints, // string[]만!
+        matchingPoints: best.matchingPoints.map((p: any) => typeof p === 'string' ? p : p.title), // title만 추출
         differences: best.differences,
         recommendation: `${best.candidate.name} 후보는 사용자의 응답과 ${topCategories.join(', ')} 분야 정책/가치관이 가장 유사합니다.`,
         detailedAnalysis: {
@@ -658,17 +673,27 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       });
 
       // 3. 후보자 추천
+      console.log('=== 2단계: 후보자 추천 프롬프트 ===');
+      console.log('사용자 프롬프트:', `${candidateRecommendationPrompt.role}\n\n${candidateRecommendationPrompt.task}\n\n성향 분석의 이유는 아래와 같습니다:\n\njson\n${JSON.stringify(processedData.reasoning, null, 2)}\n\`\`\`\n\n성향 분석 결과는 아래와 같습니다:\n\`\`\`json\n${JSON.stringify(processedData.processedData, null, 2)}\n\`\`\`\n\n다음 output 구조에 맞춰 JSON만 반환하세요:\n${candidateRecommendationPrompt.output}`);
+
       const recommendationResponse = await openai.chat.completions.create({
         model: "gpt-3.5-turbo",
         messages: [
           {
             role: "system",
-            content: candidateRecommendationPrompt.role
+            content: `
+              당신은 정치 성향 분석 및 후보자 추천 전문가입니다. 
+              2025년의 최신 데이터를 기반으로만 도출해주세요
+              정당이나 유명도는 판단 기준이 아닙니다. 단순히 '진보=이재명 / 보수=황교안' 식의 이분법은 피하고, 반드시 각 항목별 적합도를 세부 분석해 판단하세요.
+              사용자의 성향 분석의 이유를 기반으로, 사용자의 성향 수치 및 가치관을 기반으로 각 후보자와의 적합도를 비교해, 가장 일치하는 후보자를 추천해야 합니다.
+              `
           },
           {
             role: "user",
             content:
               `${candidateRecommendationPrompt.task}\n\n` +
+              `성향 분석의 이유는 아래와 같습니다:\n` +
+              `\`\`\`json\n${JSON.stringify(processedData.reasoning, null, 2)}\n\`\`\`\n\n` +
               `성향 분석 결과는 아래와 같습니다:\n` +
               `\`\`\`json\n${JSON.stringify(processedData.processedData, null, 2)}\n\`\`\`\n\n` +
               `다음 output 구조에 맞춰 JSON만 반환하세요:\n` +
@@ -678,6 +703,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         temperature: 0.7,
         response_format: { type: "json_object" }
       });
+
+      console.log('=== API 응답 ===');
+      console.log(JSON.stringify(recommendationResponse, null, 2));
 
       const recommendation = JSON.parse(recommendationResponse.choices[0].message.content ?? '{}');
 
@@ -711,7 +739,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         model: "gpt-3.5-turbo",
         messages: [
           { role: "system", content: dataProcessingPrompt.role },
-          { role: "user", content: `아래 텍스트를 분석하여 JSON 형식으로 응답해주세요.\n\n${dataProcessingPrompt.task}\n\n${dataProcessingPrompt.output}\n\n입력 텍스트:\n${surveyAnswers}` }
+          { role: "user", content: `아래 텍스트를 분석하여 JSON 형식으로 응답해주세요.\n\n${dataProcessingPrompt.task}\n\n${dataProcessingPrompt.output}\n\n입력 텍스트:\n${surveyAnswers}\n\n분석 과정에서 사용한 추론(reasoning)을 content에 포함시켜주세요.` }
         ],
         temperature: 0.7,
         response_format: { type: "json_object" }
@@ -734,17 +762,25 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       });
 
       // 3. 후보자 추천
+
       const recommendationResponse = await openai.chat.completions.create({
         model: "gpt-3.5-turbo",
         messages: [
           {
             role: "system",
-            content: candidateRecommendationPrompt.role
+            content: `
+              당신은 정치 성향 분석 및 후보자 추천 전문가입니다. 
+              2025년의 최신 데이터를 기반으로만 도출해주세요
+              정당이나 유명도는 판단 기준이 아닙니다. 단순히 '진보=이재명 / 보수=황교안' 식의 이분법은 피하고, 반드시 각 항목별 적합도를 세부 분석해 판단하세요.
+              사용자의 성향 분석의 이유를 기반으로, 사용자의 성향 수치 및 가치관을 기반으로 각 후보자와의 적합도를 비교해, 가장 일치하는 후보자를 추천해야 합니다.
+              `
           },
           {
             role: "user",
             content:
               `${candidateRecommendationPrompt.task}\n\n` +
+              `성향 분석의 이유는 아래와 같습니다:\n` +
+              `\`\`\`json\n${JSON.stringify(processedData.reasoning, null, 2)}\n\`\`\`\n\n` +
               `성향 분석 결과는 아래와 같습니다:\n` +
               `\`\`\`json\n${JSON.stringify(processedData.processedData, null, 2)}\n\`\`\`\n\n` +
               `다음 output 구조에 맞춰 JSON만 반환하세요:\n` +
@@ -754,6 +790,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         temperature: 0.7,
         response_format: { type: "json_object" }
       });
+      
+
+      console.log('=== API 응답 ===');
+      console.log(JSON.stringify(recommendationResponse, null, 2));
 
       const recommendation = JSON.parse(recommendationResponse.choices[0].message.content ?? '{}');
 
